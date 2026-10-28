@@ -13,7 +13,7 @@ All of SPEC.md is built and tested locally (see `plans/2026-10-28-first-build.md
   - Does it *feel* right to read? Typography, highlight colors, how quiet the footnotes and margin markers are.
   - Selecting text on a **real phone or tablet**. Touch selection is the least-tested path.
   - Two browsers side by side (e.g. one normal, one private window) with different names: notes appear live in both.
-- [ ] **Equiano.** Ask Claude to convert `texts/equiano.html` (Gutenberg HTML) into Markdown with `# ` chapter headings. Also decide whether `texts/` should be committed. It's public domain, so committing is fine, but it isn't committed now.
+- [ ] **Equiano.** Chapters I–III are converted: `texts/equiano.md`, made by `scripts/gutenberg_to_md.py`. Equiano's own 11 footnotes are in `texts/equiano-footnotes.json`. **Don't upload yet:** a text can't be changed after upload, so wait until the chapter range is final. Still to do: load footnotes (Equiano's plus your Oxford notes index), convert the remaining chapters, and decide whether `texts/` gets committed. The Gutenberg text is public domain; your notes index is your own paraphrase, so committing it is your call.
 - [ ] **Deploy to Fly.io** (needs your go-ahead; Claude can run these if you say so). First time only:
   ```bash
   fly apps create you-annotate
