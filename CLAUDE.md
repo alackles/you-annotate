@@ -12,11 +12,11 @@ The core idea: students annotate a shared text together in real time using three
 
 ## Specifications
 
-See @SPEC.md for full specs. **Do not edit SPEC.md** -- when changes arise or decisions are made regarding the layout of the app which a human might want to know, instead add to DECISIONS.md.
+See @docs/SPEC.md for full specs. **Do not edit docs/SPEC.md** -- when changes arise or decisions are made regarding the layout of the app which a human might want to know, instead add to docs/DECISIONS.md.
 
 ## Working agreement
 
-Acacia's goal here is a working classroom tool, and the meta-goal is to see how well Claude builds an app from a front-loaded spec. So **Claude makes the judgment calls** in this project rather than asking about each one, and logs every call in DECISIONS.md, flagging anything that departs from or adds to SPEC.md.
+Acacia's goal here is a working classroom tool, and the meta-goal is to see how well Claude builds an app from a front-loaded spec. So **Claude makes the judgment calls** in this project rather than asking about each one, and logs every call in docs/DECISIONS.md, flagging anything that departs from or adds to docs/SPEC.md.
 
 ## Commands
 
@@ -30,7 +30,7 @@ cp .env.example .env                                 # set ADMIN_PASSWORD etc.
 node --test tests/                                   # JS pure-function tests (Node 18+, no deps)
 .venv/bin/python scripts/e2e.py [shots-dir]          # browser end-to-end; needs `uv pip install playwright` + Google Chrome
 
-fly deploy --ha=false                                # deploy (see HUMAN.md for first-time setup)
+fly deploy --ha=false                                # deploy (see docs/HUMAN.md for first-time setup)
 .venv/bin/python scripts/gutenberg_to_md.py texts/equiano.html --out texts/equiano.md --footnotes texts/equiano-footnotes.json
 .venv/bin/python scripts/load_footnotes.py [--base URL] [--apply]   # footnotes onto a live text; dry run unless --apply; idempotent
 ```
@@ -54,12 +54,12 @@ Layers: `vocab`/`commentary` (highlights + threads) and `footnote` (admin-only, 
 
 ## Documentation
 
-- @HUMAN.md: instructions and notes for the human (Acacia) developer - leave items here when they need human input or steps (e.g. setting up the fly.io server, testing between steps). Like a handoff document and running to-do list for the human.
+- @docs/HUMAN.md: instructions and notes for the human (Acacia) developer - leave items here when they need human input or steps (e.g. setting up the fly.io server, testing between steps). Like a handoff document and running to-do list for the human.
 - README.md: Human-facing, written for non-coders who want to understand what the tool is and how it's used.
-- @DECISIONS.md: A running list of decisions which have a bearing on the design, as a Markdown table with four columns: date, decision, AI contribution, Human contribution. (Either contribution may be empty, if the decision was solely AI or solely human.)
+- @docs/DECISIONS.md: A running list of decisions which have a bearing on the design, as a Markdown table with four columns: date, decision, AI contribution, Human contribution. (Either contribution may be empty, if the decision was solely AI or solely human.)
 - @plans/: Whenever you enter "plan mode" and produce a plan, when the plan is approved, save it to `plans/YYYY-MM-DD-<plan-title-slug>.md`.
 
-Freely update all these documents (except SPEC.md).
+Freely update all these documents (except docs/SPEC.md).
 
 ## Additional Notes
 
