@@ -8,12 +8,12 @@ All of SPEC.md is built and tested locally (see `plans/2026-10-28-first-build.md
 
 ## To do
 
-- [ ] **Try it locally.** One-time: `uv venv && uv pip install -r requirements-dev.txt`, then `cp .env.example .env` and set `ADMIN_PASSWORD`. Run `.venv/bin/uvicorn app.main:app --reload`, open http://localhost:8000/admin, and upload `fixtures/sample.md` (passcode anything).
+- [x] **Try it locally.** One-time: `uv venv && uv pip install -r requirements-dev.txt`, then `cp .env.example .env` and set `ADMIN_PASSWORD`. Run `.venv/bin/uvicorn app.main:app --reload`, open http://localhost:8000/admin, and upload `fixtures/sample.md` (passcode anything).
 - [ ] **Hands-on check of what the automated tests can't judge:**
   - Does it *feel* right to read? Typography, highlight colors, how quiet the footnotes and margin markers are.
   - Selecting text on a **real phone or tablet**. Touch selection is the least-tested path.
   - Two browsers side by side (e.g. one normal, one private window) with different names: notes appear live in both.
-- [ ] **Equiano.** Chapters I–III are converted: `texts/equiano.md`, made by `scripts/gutenberg_to_md.py`. Equiano's own 11 footnotes are in `texts/equiano-footnotes.json`. **Don't upload yet:** a text can't be changed after upload, so wait until the chapter range is final. Still to do: load footnotes (Equiano's plus your Oxford notes index), convert the remaining chapters, and decide whether `texts/` gets committed. The Gutenberg text is public domain; your notes index is your own paraphrase, so committing it is your call.
+- [ ] **Equiano.** The whole book is converted: `texts/equiano.md` (Front Matter + Chapters I–XII, checked word-for-word against the Gutenberg HTML), made by `scripts/gutenberg_to_md.py`. Equiano's own 26 footnotes are in `texts/equiano-footnotes.json`. Upload it via `/admin` on the **deployed** site; a local upload only lives in your local database. Next: a footnote loader for Equiano's notes plus your Oxford index. All 90 index entries (Chapters I–VI) can be located in the text. In your draft, the headings for Chapters IV and V look shifted: notes on pp. 53–57 fall in Chapter III, and pp. 59–72 in Chapter IV. Decide whether `texts/` gets committed: Gutenberg is public domain, and the notes index is your call.
 - [ ] **Deploy to Fly.io** (needs your go-ahead; Claude can run these if you say so). First time only:
   ```bash
   fly apps create you-annotate
