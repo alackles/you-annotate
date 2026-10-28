@@ -143,6 +143,7 @@ def annotation_json(row, replies, ident) -> dict:
         "end": row["end_offset"],
         "quote": row["quote"],
         "body": row["body"],
+        "voice": row["voice"],
         "author_name": row["author_name"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
@@ -209,9 +210,13 @@ async def live_events(slug: str, request: Request):
     )
 
 
+Voice = Literal["author", "editor"]
+
+
 class NewAnnotation(Span):
     layer: Literal["vocab", "commentary", "footnote"]
     body: str = ""
+    voice: Voice = "editor"  # footnotes only: the book's own note, or an editor's
 
 
 def check_body(layer: str, body: str) -> str:
@@ -230,12 +235,13 @@ async def create_annotation(slug: str, body: NewAnnotation, request: Request, co
         raise HTTPException(403, "Only the admin can add footnotes")
     check_span(conn, text["id"], body)
     comment = check_body(body.layer, body.body)
+    voice = body.voice if body.layer == "footnote" else "editor"
     cur = conn.execute(
         """INSERT INTO annotations (text_id, chapter_id, layer, start_offset, end_offset, quote,
-                                    body, author_name, author_token)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                    body, voice, author_name, author_token)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (text["id"], body.chapter_id, body.layer, body.start, body.end, body.quote, comment,
-         ident["name"], ident["token"]),
+         voice, ident["name"], ident["token"]),
     )
     conn.commit()
     events.publish(text["id"])
@@ -263,13 +269,19 @@ class Body(BaseModel):
     body: str
 
 
+class AnnotationEdit(Body):
+    voice: Voice | None = None
+
+
 @router.patch("/annotations/{ann_id}")
-async def edit_annotation(ann_id: int, body: Body, request: Request, conn=Depends(get_conn)):
+async def edit_annotation(ann_id: int, body: AnnotationEdit, request: Request, conn=Depends(get_conn)):
     row = get_owned(conn, request, "annotations", ann_id, ANNOTATION_TEXT)
     comment = check_body(row["layer"], body.body)
+    if body.voice is not None and row["layer"] != "footnote":
+        raise HTTPException(422, "Only footnotes have a voice")
     conn.execute(
-        "UPDATE annotations SET body = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-        (comment, ann_id),
+        "UPDATE annotations SET body = ?, voice = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (comment, body.voice or row["voice"], ann_id),
     )
     conn.commit()
     events.publish(row["owning_text_id"])

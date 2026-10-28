@@ -84,7 +84,7 @@ export function createPanel(root, ctx) {
     const me = ctx.me();
     return el('section', { className: `thread layer-${ann.layer}` },
       el('div', { className: 'thread-kind' },
-        LAYER_NAMES[ann.layer],
+        ann.layer === 'footnote' && ann.voice === 'author' ? "Author's note" : LAYER_NAMES[ann.layer],
         el('a', { className: 'permalink', href: `#${ctx.chapterOrd(ann.chapter_id)}/a${ann.id}`, textContent: 'link', title: 'Link to this annotation' }),
       ),
       el('blockquote', { className: 'quote', textContent: ann.quote }),
@@ -162,12 +162,17 @@ export function createPanel(root, ctx) {
     const { layer, span, chapterId } = mode;
     const area = el('textarea', { placeholder: PLACEHOLDERS[layer], rows: 4 });
     area.dataset.key = 'compose';
+    const voice = layer === 'footnote' && el('select', { className: 'voice' },
+      el('option', { value: 'editor', textContent: "Editor's note (numbered, on hover)" }),
+      el('option', { value: 'author', textContent: "Author's own note (lettered, always shown)" }),
+    );
     const save = el('button', {
       className: 'btn primary',
       textContent: 'Save',
       onclick: async () => {
         save.disabled = true;
         const payload = { chapter_id: chapterId, start: span.start, end: span.end, quote: span.quote, layer, body: area.value };
+        if (voice) payload.voice = voice.value;
         const res = await act(() => api('POST', `/api/texts/${encodeURIComponent(ctx.slug)}/annotations`, payload));
         save.disabled = false;
         if (res) open({ kind: 'threads', ids: [res.id] });
@@ -177,6 +182,7 @@ export function createPanel(root, ctx) {
     return el('section', { className: `thread compose layer-${layer}` },
       el('div', { className: 'thread-kind', textContent: LAYER_NAMES[layer] }),
       el('blockquote', { className: 'quote', textContent: span.quote }),
+      voice,
       area,
       el('div', { className: 'actions' },
         el('button', { className: 'btn', textContent: 'Cancel', onclick: close }),

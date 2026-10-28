@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { assignLanes, linkParts, numberLinks, roman, segment, stackTops, trimSpan } from '../static/js/pure.js';
+import { assignLanes, letter, linkParts, numberLinks, roman, segment, stackTops, trimSpan } from '../static/js/pure.js';
 
 test('segment splits overlapping ranges into runs that list every covering range', () => {
   const runs = segment([
@@ -71,4 +71,8 @@ test('overlapping bars get separate lanes; disjoint ones reuse lane 0', () => {
 
 test('stackTops nudges colliding labels down', () => {
   assert.deepEqual(stackTops([{ top: 0, height: 10 }, { top: 5, height: 10 }, { top: 40, height: 10 }], 2), [0, 12, 40]);
+});
+
+test('letters for author footnotes', () => {
+  assert.deepEqual([1, 2, 26, 27, 28].map(letter), ['a', 'b', 'z', 'aa', 'ab']);
 });

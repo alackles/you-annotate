@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS annotations (
     end_offset    INTEGER NOT NULL,
     quote         TEXT NOT NULL,
     body          TEXT NOT NULL DEFAULT '',
+    voice         TEXT NOT NULL DEFAULT 'editor',  -- footnotes: 'author' (the book's own) or 'editor'
     author_name   TEXT NOT NULL,
     author_token  TEXT NOT NULL,
     created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -93,9 +94,17 @@ def init() -> None:
     try:
         conn.execute("PRAGMA journal_mode = WAL")
         conn.executescript(SCHEMA)
+        migrate(conn)
         conn.commit()
     finally:
         conn.close()
+
+
+def migrate(conn: sqlite3.Connection) -> None:
+    """Bring databases created by older versions up to SCHEMA."""
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(annotations)")}
+    if "voice" not in columns:
+        conn.execute("ALTER TABLE annotations ADD COLUMN voice TEXT NOT NULL DEFAULT 'editor'")
 
 
 async def get_conn():

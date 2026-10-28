@@ -9,7 +9,9 @@ The first text is Olaudah Equiano's *The Interesting Narrative* (1789), but any 
 Each chapter is its own page, laid out like a printed book with wide margins:
 
 - **The text** is in the middle, set for long reading.
-- **The left margin** holds **footnotes**: the editor's notes that "came with the book." A small gray number in the text marks each one; hover over it (or tap it) to read the note.
+- **The left margin** holds **footnotes**, the notes that "came with the book." There are two kinds:
+  - **The author's own notes** (Equiano's) are marked with small italic letters (a, b, c…) and are always shown in the margin.
+  - **Editor's notes** are marked with small gray numbers (1, 2, 3…). The passage each one explains is lightly shaded gray; hover over the number (or tap it) to read the note.
 - **The right margin** holds **structural links**: a thin green line and a Roman numeral beside a passage, showing that it's connected to something elsewhere, usually an item in the chapter's opening summary. The other end of the link has a faint green underline; click either end to jump to the other.
 - **Colored highlights** in the text are readers' notes:
   - **Blue** marks *vocabulary*: a word or phrase someone wanted explained.

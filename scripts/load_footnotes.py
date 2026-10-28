@@ -7,10 +7,12 @@ notes index (texts/equiano_files/equiano_explanatory_notes_index.md).
 
 Posts through the normal API as admin (password from $ADMIN_PASSWORD or .env), so the
 server re-checks every anchor. Safe to re-run: a footnote already present at the same
-place with the same text is skipped.
+place with the same text is skipped, and one that differs only in voice (or still has the
+old "Equiano's note: " prefix) is updated in place.
 
 Placement:
-- Equiano's notes attach to the word just before where his [A], [B]… mark stood.
+- Equiano's notes attach to the word just before where his [A], [B]… mark stood, with
+  voice "author" (shown lettered and always visible); index entries have voice "editor".
 - Index entries are matched in page order through the whole book (the index's chapter
   headings aren't relied on). "start … end" lemmas cover the whole span from start to end.
   An entry not found in the main text but found in one of Equiano's notes (e.g. "Voyage")
@@ -29,6 +31,7 @@ import httpx
 from dotenv import dotenv_values
 
 REPO = Path(__file__).resolve().parent.parent
+OLD_PREFIX = "Equiano's note: "  # how author notes were marked before footnotes had a voice
 EQUIANO_NOTES = REPO / "texts" / "equiano-footnotes.json"
 INDEX = REPO / "texts" / "equiano_files" / "equiano_explanatory_notes_index.md"
 
@@ -98,7 +101,7 @@ def plan(chapters: list[dict]) -> tuple[list[dict], list[str]]:
         anchor = ch["plain"].index(context) + len(context)
         word = re.search(r"(\w[\w'’-]*)\W*$", ch["plain"][:anchor])
         equiano.append({"ch": ch, "start": word.start(1), "end": word.end(1), "label": n["label"],
-                        "body": f"Equiano's note: {n['text']}"})
+                        "body": n["text"], "voice": "author"})
 
     # Index entries annotate the narrative, so each chapter's opening summary is masked out
     # (same length, so offsets don't shift); otherwise "Brimstone-Hill … Montserrat" would
@@ -118,7 +121,7 @@ def plan(chapters: list[dict]) -> tuple[list[dict], list[str]]:
             pos = m.start() + 1
             base, ch = [(o, c) for o, c in offsets if o <= m.start()][-1]
             notes.append({"ch": ch, "start": m.start() - base, "end": m.end() - base,
-                          "label": f"p.{e['page']}", "body": e["body"]})
+                          "label": f"p.{e['page']}", "body": e["body"], "voice": "editor"})
             continue
         host = next((n for n in equiano if lemma_pattern(e["lemma"]).search(n["body"])), None)
         if host:
@@ -138,6 +141,7 @@ def plan(chapters: list[dict]) -> tuple[list[dict], list[str]]:
             "end": utf16(plain, n["end"]),
             "quote": plain[n["start"]:n["end"]],
             "body": n["body"],
+            "voice": n["voice"],
         })
     return out, problems
 
@@ -157,19 +161,29 @@ def main():
             chapters.append({**meta, "plain": plain_text(html)})
         footnotes, problems = plan(chapters)
 
-        existing = {
-            (a["chapter_id"], a["start"], a["end"], a["body"])
-            for a in c.get(f"/api/texts/{args.slug}/annotations").json()["annotations"]
-            if a["layer"] == "footnote"
-        }
-        todo = [f for f in footnotes if (f["chapter_id"], f["start"], f["end"], f["body"]) not in existing]
+        existing = {}
+        for a in c.get(f"/api/texts/{args.slug}/annotations").json()["annotations"]:
+            if a["layer"] == "footnote":
+                existing.setdefault((a["chapter_id"], a["start"], a["end"]), []).append(a)
+        todo, updates = [], []
+        for f in footnotes:
+            here = existing.get((f["chapter_id"], f["start"], f["end"]), [])
+            same = next((a for a in here if a["body"] in (f["body"], OLD_PREFIX + f["body"])), None)
+            if same is None:
+                todo.append(f)
+                f["mark"] = "  "
+            elif (same["body"], same["voice"]) != (f["body"], f["voice"]):
+                updates.append((same["id"], f))
+                f["mark"] = "~ "
+            else:
+                f["mark"] = "= "
 
         for f in footnotes:
             quote = f["quote"] if len(f["quote"]) <= 40 else f"{f['quote'][:18]}…{f['quote'][-18:]}"
-            mark = "  " if f in todo else "= "
-            print(f"{mark}{f['label']:<14} {f['chapter']:<12} {quote!r:<44} {f['body'][:60]}")
-        print(f"\n{len(footnotes)} footnotes planned, {len(footnotes) - len(todo)} already present (=), "
-              f"{len(todo)} to add.")
+            print(f"{f['mark']}{f['label']:<14} {f['voice']:<6} {f['chapter']:<12} {quote!r:<44} {f['body'][:50]}")
+        present = len(footnotes) - len(todo) - len(updates)
+        print(f"\n{len(footnotes)} footnotes planned: {present} already present (=), "
+              f"{len(updates)} to update (~), {len(todo)} to add.")
         for p in problems:
             print("PROBLEM:", p)
 
@@ -180,13 +194,18 @@ def main():
         c.post("/api/admin/login", json={"password": password}).raise_for_status()
         failed = 0
         for f in todo:
-            payload = {k: f[k] for k in ("chapter_id", "start", "end", "quote", "body")}
+            payload = {k: f[k] for k in ("chapter_id", "start", "end", "quote", "body", "voice")}
             r = c.post(f"/api/texts/{args.slug}/annotations", json={**payload, "layer": "footnote"})
             if r.status_code != 200:
                 failed += 1
                 print(f"FAILED {f['label']}: {r.status_code} {r.text}")
+        for ann_id, f in updates:
+            r = c.patch(f"/api/annotations/{ann_id}", json={"body": f["body"], "voice": f["voice"]})
+            if r.status_code != 200:
+                failed += 1
+                print(f"FAILED update {f['label']}: {r.status_code} {r.text}")
         c.post("/api/admin/logout")
-        print(f"Added {len(todo) - failed}, failed {failed}.")
+        print(f"Done: {len(todo)} to add, {len(updates)} to update, {failed} failed (see above).")
 
 
 if __name__ == "__main__":

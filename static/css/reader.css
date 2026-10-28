@@ -306,7 +306,12 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
   user-select: none;
 }
 .fn-mark:hover { color: var(--ink-soft); }
-.ann.fn-range.fn-active { background: rgba(0, 0, 0, 0.05); }
+.fn-mark-author { color: var(--ink-soft); font-family: var(--serif); font-style: italic; font-size: 0.7em; }
+
+/* Editors' notes: the glossed passage is always faintly shaded (student highlights win). */
+.ann.fn-editor:not(.hl-vocab):not(.hl-comm) { background: rgba(70, 60, 50, 0.07); }
+.ann.fn-editor.fn-active:not(.hl-vocab):not(.hl-comm) { background: rgba(70, 60, 50, 0.14); }
+.ann.fn-author.fn-active:not(.hl-vocab):not(.hl-comm) { background: rgba(70, 60, 50, 0.07); }
 
 .fn-note {
   position: absolute;
@@ -320,6 +325,12 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
   text-align: left;
 }
 .fn-note.show { display: block; }
+/* The book's own notes are always there, in the text's ink rather than editorial grey. */
+.fn-note-author { display: block; color: var(--ink-soft); }
+.fn-note-author .fn-num { font-family: var(--serif); font-style: italic; font-size: 0.9em; }
+.fn-note-author.show { color: var(--ink); }
+/* An editor's note shown on hover sits above any author note it overlaps. */
+.fn-note-editor.show { z-index: 2; background: var(--paper); box-shadow: 0 0 0 6px var(--paper); }
 .fn-num { font-family: var(--sans); font-size: 0.75em; }
 .fn-edit { font-size: 0.75rem; color: var(--muted); }
 
@@ -372,6 +383,7 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 .toolbar .tb-fn::before { content: '¹ '; opacity: 0.7; }
 
 @media (max-width: 1000px) {
+  .fn-note-author:not(.show) { display: none; }
   .fn-note.show {
     position: fixed;
     z-index: 26;

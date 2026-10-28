@@ -92,3 +92,10 @@ export function stackTops(items, gap = 2) {
     return t;
   });
 }
+
+// 1 -> 'a', 26 -> 'z', 27 -> 'aa': labels for the book's own (author) footnotes.
+export function letter(n) {
+  let out = '';
+  for (; n > 0; n = Math.floor((n - 1) / 26)) out = String.fromCharCode(97 + ((n - 1) % 26)) + out;
+  return out;
+}

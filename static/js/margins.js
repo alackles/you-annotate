@@ -26,25 +26,34 @@ function extent(root, margin, start, end) {
   };
 }
 
-// footnotes: [{id, number, body, can_edit}] for this chapter, markers already in `root`.
-// Returns Map(id -> note element).
+// footnotes: [{id, number, voice, body, can_edit}] for this chapter, markers already in
+// `root`. Author notes (the book's own) are always shown, stacked so they never overlap;
+// editor notes appear on hover or click. Returns Map(id -> note element).
 export function layoutFootnotes(margin, root, footnotes, { onEdit }) {
   margin.replaceChildren();
   const notes = new Map();
   const base = margin.getBoundingClientRect().top;
+  const always = [];
   for (const fn of footnotes) {
     const marker = root.querySelector(`.fn-mark[data-id="${fn.id}"]`);
     if (!marker) continue;
-    const note = el('div', { className: 'fn-note' },
+    const note = el('div', { className: `fn-note fn-note-${fn.voice}` },
       el('span', { className: 'fn-num', textContent: `${fn.number}. ` }),
       fn.body,
     );
     if (fn.can_edit) {
       note.append(' ', el('button', { className: 'link-button fn-edit', textContent: 'edit', onclick: () => onEdit(fn.id) }));
     }
-    note.style.top = `${marker.getBoundingClientRect().top - base}px`;
+    const top = marker.getBoundingClientRect().top - base;
+    note.style.top = `${top}px`;
     margin.append(note);
     notes.set(fn.id, note);
+    if (fn.voice === 'author') always.push({ note, top });
+  }
+  if (always.length && always[0].note.offsetHeight) { // zero height: hidden on narrow screens
+    always.sort((a, b) => a.top - b.top);
+    const tops = stackTops(always.map(({ note, top }) => ({ top, height: note.offsetHeight })), 8);
+    always.forEach(({ note }, i) => { note.style.top = `${tops[i]}px`; });
   }
   return notes;
 }

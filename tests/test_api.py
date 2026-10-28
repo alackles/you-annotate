@@ -122,3 +122,27 @@ def test_listing_never_exposes_tokens(app):
     alice = student(app, "Alice")
     annotate(alice)
     assert "token" not in TestClient(app).get("/api/texts/sample/annotations").text
+
+
+def test_footnote_voice_set_on_create_and_edit(app, admin):
+    fn_id = admin.post("/api/texts/sample/annotations",
+                       json={**span("strand"), "layer": "footnote", "body": "A beach.", "voice": "author"}).json()["id"]
+    listing = lambda: {a["id"]: a for a in admin.get("/api/texts/sample/annotations").json()["annotations"]}
+    assert listing()[fn_id]["voice"] == "author"
+    assert admin.patch(f"/api/annotations/{fn_id}", json={"body": "A shore.", "voice": "editor"}).status_code == 200
+    assert listing()[fn_id]["voice"] == "editor"
+    vocab_id = annotate(admin).json()["id"]
+    assert admin.patch(f"/api/annotations/{vocab_id}", json={"body": "x", "voice": "author"}).status_code == 422
+
+
+def test_old_database_gains_voice_column(tmp_path, monkeypatch):
+    import sqlite3
+    from app import db
+    path = tmp_path / "old.db"
+    old = sqlite3.connect(path)
+    old.executescript(db.SCHEMA.replace("    voice         TEXT NOT NULL DEFAULT 'editor',  -- footnotes: 'author' (the book's own) or 'editor'\n", ""))
+    old.close()
+    monkeypatch.setenv("DB_PATH", str(path))
+    db.init()
+    columns = {row[1] for row in sqlite3.connect(path).execute("PRAGMA table_info(annotations)")}
+    assert "voice" in columns

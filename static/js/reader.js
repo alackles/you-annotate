@@ -2,14 +2,14 @@ import { api } from './api.js';
 import { rangeFor, selectionSpan } from './anchoring.js';
 import { layoutFootnotes, layoutLinks } from './margins.js';
 import { createPanel } from './panel.js';
-import { numberLinks } from './pure.js';
+import { letter, numberLinks } from './pure.js';
 import { insertAt, paint } from './render.js';
 
 const $ = (id) => document.getElementById(id);
 const slug = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop());
 const apiBase = `/api/texts/${encodeURIComponent(slug)}`;
 
-const LAYER_CLASS = { vocab: 'hl-vocab', commentary: 'hl-comm', footnote: 'fn-range' };
+const LAYER_CLASS = { vocab: 'hl-vocab', commentary: 'hl-comm' };
 
 const state = {
   text: null,          // {id, slug, title, chapters: [{id, ord, title}], me}
@@ -183,7 +183,9 @@ function repaint() {
   const chapterId = state.chapter.id;
   const marks = [];
   for (const a of state.data.annotations) {
-    if (a.chapter_id === chapterId) marks.push({ id: `a${a.id}`, start: a.start, end: a.end, classes: [LAYER_CLASS[a.layer]] });
+    if (a.chapter_id !== chapterId) continue;
+    const classes = a.layer === 'footnote' ? ['fn-range', `fn-${a.voice}`] : [LAYER_CLASS[a.layer]];
+    marks.push({ id: `a${a.id}`, start: a.start, end: a.end, classes });
   }
   for (const l of state.data.links) {
     if (l.anchor.chapter_id === chapterId) marks.push({ id: `l${l.id}`, start: l.anchor.start, end: l.anchor.end, classes: ['link-anchor'] });
@@ -193,7 +195,7 @@ function repaint() {
   if (pending?.chapter_id === chapterId) marks.push({ id: 'pending', start: pending.start, end: pending.end, classes: ['pending-anchor'] });
   paint($('chapter'), state.chapter.html, marks);
   footnotesHere().forEach((fn) => {
-    const marker = Object.assign(document.createElement('sup'), { className: 'ui fn-mark', textContent: fn.number });
+    const marker = Object.assign(document.createElement('sup'), { className: `ui fn-mark fn-mark-${fn.voice}`, textContent: fn.number });
     marker.dataset.id = fn.id;
     insertAt($('chapter'), fn.end, marker);
   });
@@ -201,12 +203,17 @@ function repaint() {
   layoutMargins();
 }
 
-// This chapter's footnotes in text order, numbered from 1.
+// This chapter's footnotes in text order: the book's own lettered a, b, c…, editors'
+// numbered 1, 2, 3…, each series counted separately.
 function footnotesHere() {
+  const count = { author: 0, editor: 0 };
   return state.data.annotations
     .filter((a) => a.layer === 'footnote' && a.chapter_id === state.chapter.id)
     .sort((a, b) => a.start - b.start || a.id - b.id)
-    .map((a, i) => ({ ...a, number: i + 1 }));
+    .map((a) => {
+      const n = ++count[a.voice];
+      return { ...a, number: a.voice === 'author' ? letter(n) : String(n) };
+    });
 }
 
 function layoutMargins() {
