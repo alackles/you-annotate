@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { linkParts, segment, trimSpan } from '../static/js/pure.js';
+import { assignLanes, linkParts, numberLinks, roman, segment, stackTops, trimSpan } from '../static/js/pure.js';
 
 test('segment splits overlapping ranges into runs that list every covering range', () => {
   const runs = segment([
@@ -47,4 +47,28 @@ test('linkParts finds URLs without swallowing trailing punctuation', () => {
     { text: ')' },
   ]);
   assert.deepEqual(linkParts('no links'), [{ text: 'no links' }]);
+});
+
+test('roman numerals', () => {
+  assert.deepEqual([1, 4, 9, 14, 40, 1999].map(roman), ['I', 'IV', 'IX', 'XIV', 'XL', 'MCMXCIX']);
+});
+
+test('links are numbered per anchor chapter in anchor order', () => {
+  const link = (id, chapter_id, start) => ({ id, anchor: { chapter_id, start } });
+  const numbers = numberLinks([link(1, 2, 50), link(2, 2, 10), link(3, 3, 0), link(4, 2, 30)]);
+  assert.deepEqual(Object.fromEntries(numbers), { 2: 1, 4: 2, 1: 3, 3: 1 });
+});
+
+test('overlapping bars get separate lanes; disjoint ones reuse lane 0', () => {
+  const lanes = assignLanes([
+    { id: 'a', top: 0, bottom: 100 },
+    { id: 'b', top: 50, bottom: 150 },
+    { id: 'c', top: 120, bottom: 200 },
+    { id: 'd', top: 300, bottom: 400 },
+  ]);
+  assert.deepEqual(Object.fromEntries(lanes), { a: 0, b: 1, c: 0, d: 0 });
+});
+
+test('stackTops nudges colliding labels down', () => {
+  assert.deepEqual(stackTops([{ top: 0, height: 10 }, { top: 5, height: 10 }, { top: 40, height: 10 }], 2), [0, 12, 40]);
 });

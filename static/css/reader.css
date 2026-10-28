@@ -72,12 +72,17 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .page {
   display: grid;
-  grid-template-columns: var(--margin-w) minmax(0, var(--text-w)) var(--margin-w);
+  grid-template-columns: minmax(6rem, var(--margin-w)) minmax(0, var(--text-w)) var(--margin-w);
   column-gap: 2.5rem;
   justify-content: center;
   padding: 3rem 1rem 6rem;
 }
 .margin { position: relative; }
+
+/* Wide screens: make room for the comment panel so the right margin stays usable. */
+@media (min-width: 1200px) {
+  body.panel-open .page { padding-right: calc(var(--panel-w) + 1rem); }
+}
 
 .text-column { min-width: 0; }
 
@@ -137,6 +142,16 @@ button, input, select, textarea { font: inherit; color: inherit; }
   :root { --margin-w: 3.5rem; }
   .page { grid-template-columns: 0 minmax(0, var(--text-w)) var(--margin-w); column-gap: 1rem; padding-top: 2rem; }
   .text-title, .home { display: none; }
+  .chapter p { text-align: left; }
+}
+
+@media (max-width: 700px) {
+  .topbar { gap: 0.5rem; padding: 0 0.5rem; }
+  .chapter-nav { margin: 0; }
+  .chapter-nav select { max-width: 9rem; }
+  .who { margin-left: auto; }
+  .who-prefix { display: none; }
+  .who strong { margin-right: 0.4rem; }
 }
 
 /* --- Join dialog -------------------------------------------------------------------- */
@@ -274,4 +289,92 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 
 @media (max-width: 700px) {
   :root { --panel-w: 100vw; }
+}
+
+/* --- Footnotes (left margin) -------------------------------------------------------- */
+
+.fn-mark {
+  font-family: var(--sans);
+  font-size: 0.62em;
+  line-height: 0;
+  vertical-align: super;
+  padding: 0 0.15em;
+  color: var(--fn);
+  cursor: pointer;
+  user-select: none;
+}
+.fn-mark:hover { color: var(--ink-soft); }
+.ann.fn-range.fn-active { background: rgba(0, 0, 0, 0.05); }
+
+.fn-note {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: none;
+  font-family: var(--serif);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #807870;
+  text-align: left;
+}
+.fn-note.show { display: block; }
+.fn-num { font-family: var(--sans); font-size: 0.75em; }
+.fn-edit { font-size: 0.75rem; color: var(--muted); }
+
+/* --- Structural links (right margin) ------------------------------------------------ */
+
+.struct-bar {
+  position: absolute;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--struct);
+  opacity: 0.5;
+}
+.struct-bar.flash { animation: barflash 1.6s ease-out; }
+@keyframes barflash { 0%, 30% { opacity: 1; box-shadow: 0 0 0 2px rgba(74, 66, 59, 0.25); } }
+
+.struct-label { position: absolute; display: flex; align-items: center; gap: 0.2rem; white-space: nowrap; }
+.struct-go {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: var(--serif);
+  line-height: 1.2;
+  cursor: pointer;
+}
+.struct-num .struct-go { font-size: 0.85rem; font-weight: 600; color: var(--struct); }
+.struct-anchor-num .struct-go { font-size: 0.75rem; color: var(--muted); }
+.struct-go:hover { text-decoration: underline; }
+.struct-del {
+  visibility: hidden;
+  border: none;
+  background: none;
+  padding: 0 0.2rem;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.struct-label:hover .struct-del { visibility: visible; }
+
+.ann.link-anchor { cursor: pointer; }
+.ann.link-anchor:hover { text-decoration: underline; text-decoration-color: rgba(74, 66, 59, 0.45); text-underline-offset: 3px; }
+.ann.pending-anchor { background: rgba(74, 66, 59, 0.1); outline: 1px dashed rgba(74, 66, 59, 0.45); }
+.toolbar .tb-link::before { content: '§ '; opacity: 0.7; }
+.toolbar .tb-fn::before { content: '¹ '; opacity: 0.7; }
+
+@media (max-width: 1000px) {
+  .fn-note.show {
+    position: fixed;
+    z-index: 26;
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    top: auto !important;
+    padding: 0.75rem 1rem;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  }
 }
