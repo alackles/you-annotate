@@ -5,9 +5,10 @@ import sqlite3
 from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from . import auth
+from . import auth, db, events
 from .db import get_conn
 from .importer import build_chapters, utf16_len, utf16_slice
 
@@ -193,6 +194,21 @@ async def list_annotations(slug: str, request: Request, conn=Depends(get_conn)):
     }
 
 
+@router.get("/texts/{slug}/events")
+async def live_events(slug: str, request: Request):
+    # No get_conn dependency: it would hold a DB connection open for the stream's lifetime.
+    conn = db.connect()
+    try:
+        text = get_text(conn, slug)
+    finally:
+        conn.close()
+    return StreamingResponse(
+        events.stream(request, text["id"]),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 class NewAnnotation(Span):
     layer: Literal["vocab", "commentary", "footnote"]
     body: str = ""
@@ -222,6 +238,7 @@ async def create_annotation(slug: str, body: NewAnnotation, request: Request, co
          ident["name"], ident["token"]),
     )
     conn.commit()
+    events.publish(text["id"])
     return {"id": cur.lastrowid}
 
 
@@ -255,14 +272,16 @@ async def edit_annotation(ann_id: int, body: Body, request: Request, conn=Depend
         (comment, ann_id),
     )
     conn.commit()
+    events.publish(row["owning_text_id"])
     return {"ok": True}
 
 
 @router.delete("/annotations/{ann_id}")
 async def delete_annotation(ann_id: int, request: Request, conn=Depends(get_conn)):
-    get_owned(conn, request, "annotations", ann_id, ANNOTATION_TEXT)
+    row = get_owned(conn, request, "annotations", ann_id, ANNOTATION_TEXT)
     conn.execute("DELETE FROM annotations WHERE id = ?", (ann_id,))
     conn.commit()
+    events.publish(row["owning_text_id"])
     return {"ok": True}
 
 
@@ -285,12 +304,13 @@ async def create_reply(ann_id: int, body: Body, request: Request, conn=Depends(g
         (ann_id, text, ident["name"], ident["token"]),
     )
     conn.commit()
+    events.publish(ann["text_id"])
     return {"id": cur.lastrowid}
 
 
 @router.patch("/replies/{reply_id}")
 async def edit_reply(reply_id: int, body: Body, request: Request, conn=Depends(get_conn)):
-    get_owned(conn, request, "replies", reply_id, REPLY_TEXT)
+    row = get_owned(conn, request, "replies", reply_id, REPLY_TEXT)
     text = body.body.strip()
     if not text:
         raise HTTPException(422, "Reply is empty")
@@ -298,14 +318,16 @@ async def edit_reply(reply_id: int, body: Body, request: Request, conn=Depends(g
         "UPDATE replies SET body = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (text, reply_id)
     )
     conn.commit()
+    events.publish(row["owning_text_id"])
     return {"ok": True}
 
 
 @router.delete("/replies/{reply_id}")
 async def delete_reply(reply_id: int, request: Request, conn=Depends(get_conn)):
-    get_owned(conn, request, "replies", reply_id, REPLY_TEXT)
+    row = get_owned(conn, request, "replies", reply_id, REPLY_TEXT)
     conn.execute("DELETE FROM replies WHERE id = ?", (reply_id,))
     conn.commit()
+    events.publish(row["owning_text_id"])
     return {"ok": True}
 
 
@@ -333,14 +355,16 @@ async def create_link(slug: str, body: NewLink, request: Request, conn=Depends(g
          ident["name"], ident["token"]),
     )
     conn.commit()
+    events.publish(text["id"])
     return {"id": cur.lastrowid}
 
 
 @router.delete("/links/{link_id}")
 async def delete_link(link_id: int, request: Request, conn=Depends(get_conn)):
-    get_owned(conn, request, "links", link_id, "x.text_id")
+    row = get_owned(conn, request, "links", link_id, "x.text_id")
     conn.execute("DELETE FROM links WHERE id = ?", (link_id,))
     conn.commit()
+    events.publish(row["owning_text_id"])
     return {"ok": True}
 
 
@@ -440,4 +464,5 @@ async def delete_text(slug: str, request: Request, conn=Depends(get_conn)):
     text = get_text(conn, slug)
     conn.execute("DELETE FROM texts WHERE id = ?", (text["id"],))
     conn.commit()
+    events.publish(text["id"])
     return {"ok": True}
