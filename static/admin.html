@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin · you-annotate</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap">
+  <link rel="stylesheet" href="/static/css/reader.css">
+</head>
+<body>
+  <main class="simple-page">
+    <p><a href="/">← all texts</a></p>
+    <h1>Admin</h1>
+
+    <section id="login-section" hidden>
+      <form id="login-form">
+        <label>Password <input type="password" name="password" required autofocus></label>
+        <button class="btn primary">Log in</button>
+        <p class="error" id="login-error"></p>
+      </form>
+    </section>
+
+    <section id="admin-section" hidden>
+      <p>Logged in. Your annotations appear under the name <strong id="admin-name"></strong>.
+        <button class="link-button" id="logout">Log out</button></p>
+
+      <h2>Texts</h2>
+      <table>
+        <thead><tr><th>Title</th><th>Chapters</th><th>Annotations</th><th>Passcode</th><th></th></tr></thead>
+        <tbody id="texts"></tbody>
+      </table>
+
+      <h2>Upload a text</h2>
+      <p>Markdown or plain text, UTF-8. Each line starting with <code># </code> begins a new chapter.
+        A text can't be replaced once uploaded (annotations are anchored to its exact characters).</p>
+      <form id="upload-form">
+        <label>File <input type="file" name="file" accept=".md,.markdown,.txt,text/plain,text/markdown" required></label>
+        <label>Title <input name="title" required></label>
+        <label>URL name (lowercase, dashes) <input name="slug" required pattern="[a-z0-9][a-z0-9\-]*"></label>
+        <label>Student passcode <input name="passcode" required></label>
+        <button class="btn primary">Upload</button>
+        <p class="error" id="upload-error"></p>
+      </form>
+    </section>
+  </main>
+
+  <script type="module">
+    import { api } from '/static/js/api.js';
+    const $ = (id) => document.getElementById(id);
+    const el = (tag, props = {}, ...children) => {
+      const node = Object.assign(document.createElement(tag), props);
+      node.append(...children);
+      return node;
+    };
+
+    async function refresh() {
+      const me = await api('GET', '/api/admin/me');
+      $('login-section').hidden = me.admin;
+      $('admin-section').hidden = !me.admin;
+      if (!me.admin) return;
+      $('admin-name').textContent = me.name;
+      const tbody = $('texts');
+      tbody.replaceChildren();
+      for (const t of await api('GET', '/api/admin/texts')) {
+        const passcode = el('input', { value: t.passcode, size: 12 });
+        const save = el('button', { className: 'btn', textContent: 'Save', onclick: async () => {
+          try { await api('PATCH', `/api/admin/texts/${t.slug}`, { passcode: passcode.value }); save.textContent = 'Saved'; }
+          catch (err) { alert(err.message); }
+        } });
+        const del = el('button', { className: 'btn', textContent: 'Delete', onclick: async () => {
+          if (!confirm(`Delete "${t.title}" and all ${t.annotations} annotations? This can't be undone.`)) return;
+          await api('DELETE', `/api/admin/texts/${t.slug}`);
+          refresh();
+        } });
+        tbody.append(el('tr', {},
+          el('td', {}, el('a', { href: `/t/${t.slug}`, textContent: t.title })),
+          el('td', { textContent: t.chapters }),
+          el('td', { textContent: t.annotations }),
+          el('td', {}, passcode, ' ', save),
+          el('td', {}, del),
+        ));
+      }
+    }
+
+    $('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await api('POST', '/api/admin/login', { password: e.target.password.value });
+        $('login-error').textContent = '';
+        refresh();
+      } catch (err) { $('login-error').textContent = err.message; }
+    });
+
+    $('logout').addEventListener('click', async () => { await api('POST', '/api/admin/logout'); refresh(); });
+
+    $('upload-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const res = await api('POST', '/api/admin/texts', new FormData(e.target));
+        $('upload-error').textContent = '';
+        e.target.reset();
+        alert(`Uploaded ${res.chapters} chapters.`);
+        refresh();
+      } catch (err) { $('upload-error').textContent = err.message; }
+    });
+
+    refresh();
+  </script>
+</body>
+</html>

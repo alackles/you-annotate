@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>you-annotate</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap">
+  <link rel="stylesheet" href="/static/css/reader.css">
+  <script type="module" src="/static/js/reader.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="home" href="/">you-annotate</a>
+    <span class="text-title" id="text-title"></span>
+    <nav class="chapter-nav">
+      <button type="button" id="prev" title="Previous chapter">‹</button>
+      <select id="chapter-select" aria-label="Chapter"></select>
+      <button type="button" id="next" title="Next chapter">›</button>
+    </nav>
+    <div class="who" id="who"></div>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <main class="page" id="page">
+    <aside class="margin margin-left" id="margin-left"></aside>
+    <article class="text-column">
+      <h1 class="chapter-title" id="chapter-title"></h1>
+      <div class="chapter" id="chapter"></div>
+      <nav class="chapter-foot">
+        <button type="button" class="link-button" id="prev-foot">‹ Previous chapter</button>
+        <button type="button" class="link-button" id="next-foot">Next chapter ›</button>
+      </nav>
+    </article>
+    <aside class="margin margin-right" id="margin-right"></aside>
+  </main>
+
+  <aside class="panel" id="panel" aria-label="Comments"></aside>
+  <div class="toolbar" id="toolbar" hidden></div>
+</body>
+</html>

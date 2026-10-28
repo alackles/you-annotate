@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>you-annotate</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap">
+  <link rel="stylesheet" href="/static/css/reader.css">
+</head>
+<body>
+  <main class="simple-page">
+    <h1>you-annotate</h1>
+    <ul class="text-list" id="texts"></ul>
+    <p><a href="/admin">Instructor login</a></p>
+  </main>
+  <script type="module">
+    import { api } from '/static/js/api.js';
+    const list = document.getElementById('texts');
+    const texts = await api('GET', '/api/texts');
+    if (!texts.length) list.innerHTML = '<li><em>No texts yet.</em></li>';
+    for (const t of texts) {
+      const a = Object.assign(document.createElement('a'), { href: `/t/${t.slug}`, textContent: t.title });
+      const li = document.createElement('li');
+      li.append(a);
+      list.append(li);
+    }
+  </script>
+</body>
+</html>
