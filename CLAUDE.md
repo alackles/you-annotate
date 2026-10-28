@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Collaborative Text Annotation Tool
 
 ## What This Is
@@ -10,15 +14,19 @@ The core idea: students annotate a shared text together in real time using three
 
 See @SPEC.md for full specs. **Do not edit SPEC.md** -- when changes arise or decisions are made regarding the layout of the app which a human might want to know, instead add to DECISIONS.md.
 
+## Commands
+
+No code yet; the stack hasn't been chosen. Once it is, record the commands here: run locally, run all tests, run a single test, deploy to Fly.io.
+
 ## Documentation
 
 - @HUMAN.md: instructions and notes for the human (Acacia) developer - leave items here when they need human input or steps (e.g. setting up the fly.io server, testing between steps). Like a handoff document and running to-do list for the human.
-- @README.md: Human-facing, written for non-coders who want to understand what the tool is and how it's used.
-- @DECISIONS.md: A running list of decisions made which have, bearing on the design. Four columns: date, decision, AI contribution, Human contribution. (Either contribution may be empty, if the decision was solely AI or solely human.)
-- @plans/: Whenever you enter "plan mode" and produce a plan, when the plan is approved, save it with today's date and the plan title to `plans/`. 
+- README.md: Human-facing, written for non-coders who want to understand what the tool is and how it's used.
+- @DECISIONS.md: A running list of decisions which have a bearing on the design, as a Markdown table with four columns: date, decision, AI contribution, Human contribution. (Either contribution may be empty, if the decision was solely AI or solely human.)
+- @plans/: Whenever you enter "plan mode" and produce a plan, when the plan is approved, save it to `plans/YYYY-MM-DD-<plan-title-slug>.md`.
 
-Freely update all these documents.
+Freely update all these documents (except SPEC.md).
 
 ## Additional Notes
 
-- See `/home/acacia/Documents/software/home-software/baseball-for-girls/` for an example of an existing Claude-coded Fly.io-deployed app, if desired; however, note that was the first attempt at "vibe-coding" something like this, so do not take anything in there as superceding your instincts. Use its documentation only if you run into Fly.io specific issues. 
+- See `/home/acacia/Documents/software/home-software/baseball-for-girls/` for an example of an existing Claude-coded Fly.io-deployed app, if desired; however, note that was the first attempt at "vibe-coding" something like this, so do not take anything in there as superseding your instincts. Use its documentation (e.g. its `DEPLOY.md`, `fly.toml`) only if you run into Fly.io specific issues.
