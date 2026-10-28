@@ -10,7 +10,7 @@ Each chapter is its own page, laid out like a printed book with wide margins:
 
 - **The text** is in the middle, set for long reading.
 - **The left margin** holds **footnotes**: the editor's notes that "came with the book." A small gray number in the text marks each one; hover over it (or tap it) to read the note.
-- **The right margin** holds **structural links**: a thin line and a Roman numeral beside a passage, showing that it's connected to something elsewhere, usually an item in the chapter's opening summary.
+- **The right margin** holds **structural links**: a thin green line and a Roman numeral beside a passage, showing that it's connected to something elsewhere, usually an item in the chapter's opening summary. The other end of the link has a faint green underline; click either end to jump to the other.
 - **Colored highlights** in the text are readers' notes:
   - **Blue** marks *vocabulary*: a word or phrase someone wanted explained.
   - **Amber** marks *commentary*: reactions, observations, interpretations.
