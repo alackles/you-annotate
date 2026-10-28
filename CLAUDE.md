@@ -31,6 +31,8 @@ node --test tests/                                   # JS pure-function tests (N
 .venv/bin/python scripts/e2e.py [shots-dir]          # browser end-to-end; needs `uv pip install playwright` + Google Chrome
 
 fly deploy --ha=false                                # deploy (see HUMAN.md for first-time setup)
+.venv/bin/python scripts/gutenberg_to_md.py texts/equiano.html --out texts/equiano.md --footnotes texts/equiano-footnotes.json
+.venv/bin/python scripts/load_footnotes.py [--base URL] [--apply]   # footnotes onto a live text; dry run unless --apply; idempotent
 ```
 
 ## Architecture
