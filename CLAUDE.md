@@ -14,9 +14,41 @@ The core idea: students annotate a shared text together in real time using three
 
 See @SPEC.md for full specs. **Do not edit SPEC.md** -- when changes arise or decisions are made regarding the layout of the app which a human might want to know, instead add to DECISIONS.md.
 
+## Working agreement
+
+Acacia's goal here is a working classroom tool, and the meta-goal is to see how well Claude builds an app from a front-loaded spec. So **Claude makes the judgment calls** in this project rather than asking about each one, and logs every call in DECISIONS.md, flagging anything that departs from or adds to SPEC.md.
+
 ## Commands
 
-No code yet; the stack hasn't been chosen. Once it is, record the commands here: run locally, run all tests, run a single test, deploy to Fly.io.
+```bash
+uv venv && uv pip install -r requirements-dev.txt   # once
+cp .env.example .env                                 # set ADMIN_PASSWORD etc.
+.venv/bin/uvicorn app.main:app --reload              # http://localhost:8000, admin at /admin
+
+.venv/bin/pytest                                     # Python tests (API, permissions, importer)
+.venv/bin/pytest tests/test_api.py::test_mismatched_quote_rejected   # one test
+node --test tests/                                   # JS pure-function tests (Node 18+, no deps)
+.venv/bin/python scripts/e2e.py [shots-dir]          # browser end-to-end; needs `uv pip install playwright` + Google Chrome
+
+fly deploy --ha=false                                # deploy (see HUMAN.md for first-time setup)
+```
+
+## Architecture
+
+FastAPI + stdlib `sqlite3` (no ORM) serving a JSON API and static files; the frontend is plain ES modules with no build step. Runs as **one process on one Fly machine**: the live-update hub (`app/events.py`) is in-memory, and SQLite lives on a single Fly volume.
+
+**Anchoring is the core invariant.** An annotation is `(chapter_id, start, end, quote)`, with offsets in **UTF-16 code units** into the chapter's `plain` text, which equals the browser's `textContent` of the chapter HTML. `app/importer.py` computes `plain` at upload; `static/js/anchoring.js` maps DOM positions to offsets by walking text nodes. Every write re-checks `plain[start:end] == quote` server-side (`check_span` in `app/api.py`). Consequences:
+- Texts can't be edited after upload; offsets would go stale.
+- Anything injected into the chapter DOM for display (footnote markers) must have class `ui`, which the text-node walker skips. Otherwise every offset after it shifts.
+- Highlight spans don't change `textContent`, so painting is safe.
+
+**Rendering is redraw-from-scratch.** On any data change, `reader.js` `repaint()` resets the chapter to its pristine HTML, `render.js` `paint()` wraps covered runs in non-nested spans (`pure.js` `segment()` splits overlapping ranges), footnote markers are inserted, and `margins.js` re-measures both margins from `Range.getClientRects()`. Margins also re-lay out on resize and font load (ResizeObserver). Repaint is deferred while the reader has text selected, since it would destroy the selection.
+
+**Live updates** carry no data: every write calls `events.publish(text_id)`, SSE clients get a `changed` ping and refetch `GET /api/texts/{slug}/annotations` (everything for the text). The comment panel (`panel.js`) preserves half-typed drafts across these refreshes.
+
+**Identity:** admin is a signed session cookie (password from `ADMIN_PASSWORD`). Students join with name + passcode, which sets a random httpOnly `ya_token` cookie; rows store `author_token`, and edit/delete requires a matching token or admin (`auth.can_modify`). Tokens must never appear in API output.
+
+Layers: `vocab`/`commentary` (highlights + threads) and `footnote` (admin-only, no thread) share the `annotations` table; structural links are the separate `links` table (two spans, no thread). Link numerals are computed client-side (`numberLinks`), not stored.
 
 ## Documentation
 
