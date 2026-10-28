@@ -9,6 +9,14 @@ Running to-do list and handoff notes for the human side of the project. Move ite
 ## To do
 
 
+## Next time
+
+Planned for the next round of work. Context: the first class used it on 2026-10-28, about 100 minutes after the build started. Students used structural links as instructed, and (unprompted) took readily to answering each other's questions in threads.
+
+- **Let a text be revised after upload.** Right now texts can't be changed, because annotations anchor by UTF-16 offsets into each chapter's `plain` text. The groundwork for revision exists: every annotation and link end stores its `quote`, so a revised text can re-anchor each one by searching for that quote. Search near the old offset first, then anywhere in the chapter, normalizing dashes and whitespace the way `scripts/load_footnotes.py` does. Match chapters by title, falling back to the whole text. Make it preview-then-apply like the loader, and **report** anything that doesn't land uniquely rather than dropping it.
+- **Export.** One endpoint that dumps a text's annotations, replies, links and footnotes: JSON for backup and restore, plus a readable Markdown version (quote, layer, author, thread). Today Fly's volume snapshots (daily, kept 5 days) are the only backup.
+- *Known, not planned:* the app is single-machine by design (in-memory live-update hub, SQLite on one volume). That's fine for a class; going beyond one machine would need a shared message bus and database.
+
 ## Done
 
 - Local run
