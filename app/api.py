@@ -2,13 +2,14 @@
 
 import re
 import sqlite3
+from typing import Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel
 
 from . import auth
 from .db import get_conn
-from .importer import build_chapters
+from .importer import build_chapters, utf16_len, utf16_slice
 
 router = APIRouter(prefix="/api")
 
@@ -37,12 +38,17 @@ async def text_info(slug: str, request: Request, conn=Depends(get_conn)):
     chapters = conn.execute(
         "SELECT id, ord, title FROM chapters WHERE text_id = ? ORDER BY ord", (text["id"],)
     ).fetchall()
+    ident = auth.identity(request, conn, text["id"])
     return {
         "id": text["id"],
         "slug": text["slug"],
         "title": text["title"],
         "chapters": [dict(c) for c in chapters],
-        "me": {"admin": auth.is_admin(request)},
+        "me": {
+            "name": ident["name"] if ident else None,
+            "can_write": ident is not None,
+            "admin": bool(ident and ident["admin"]),
+        },
     }
 
 
@@ -56,6 +62,286 @@ async def chapter(slug: str, chapter_id: int, conn=Depends(get_conn)):
     if row is None:
         raise HTTPException(404, "No such chapter")
     return dict(row)
+
+
+# --- Joining ---------------------------------------------------------------------------
+
+
+class Join(BaseModel):
+    name: str
+    passcode: str
+
+
+@router.post("/texts/{slug}/join")
+async def join(slug: str, body: Join, request: Request, response: Response, conn=Depends(get_conn)):
+    text = get_text(conn, slug)
+    name = " ".join(body.name.split())[:60]
+    if not name:
+        raise HTTPException(400, "Enter your name")
+    if not auth.passcode_matches(body.passcode, text["passcode"]):
+        raise HTTPException(403, "Wrong passcode")
+    token = request.cookies.get(auth.TOKEN_COOKIE) or auth.new_token()
+    conn.execute(
+        """INSERT INTO participants (token, text_id, name) VALUES (?, ?, ?)
+           ON CONFLICT (token, text_id) DO UPDATE SET name = excluded.name""",
+        (token, text["id"], name),
+    )
+    conn.commit()
+    response.set_cookie(
+        auth.TOKEN_COOKIE,
+        token,
+        max_age=auth.TOKEN_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+    )
+    return {"name": name, "can_write": True, "admin": False}
+
+
+# --- Annotations -----------------------------------------------------------------------
+#
+# A span is (chapter, start, end, quote) with offsets in UTF-16 units into chapter.plain.
+# Every write re-checks the quote against the stored text, so a bad anchor can't be saved.
+
+
+class Span(BaseModel):
+    chapter_id: int
+    start: int
+    end: int
+    quote: str
+
+
+def check_span(conn: sqlite3.Connection, text_id: int, span: Span) -> None:
+    ch = conn.execute(
+        "SELECT plain FROM chapters WHERE id = ? AND text_id = ?", (span.chapter_id, text_id)
+    ).fetchone()
+    if ch is None:
+        raise HTTPException(422, "No such chapter in this text")
+    in_bounds = 0 <= span.start < span.end <= utf16_len(ch["plain"])
+    if not in_bounds or utf16_slice(ch["plain"], span.start, span.end) != span.quote:
+        raise HTTPException(422, "Selection doesn't match the text")
+
+
+def reply_json(row, ident) -> dict:
+    return {
+        "id": row["id"],
+        "body": row["body"],
+        "author_name": row["author_name"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        "can_edit": auth.can_modify(ident, row),
+    }
+
+
+def annotation_json(row, replies, ident) -> dict:
+    return {
+        "id": row["id"],
+        "chapter_id": row["chapter_id"],
+        "layer": row["layer"],
+        "start": row["start_offset"],
+        "end": row["end_offset"],
+        "quote": row["quote"],
+        "body": row["body"],
+        "author_name": row["author_name"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        "can_edit": auth.can_modify(ident, row),
+        "replies": [reply_json(r, ident) for r in replies],
+    }
+
+
+def link_json(row, ident) -> dict:
+    return {
+        "id": row["id"],
+        "anchor": {
+            "chapter_id": row["anchor_chapter_id"],
+            "start": row["anchor_start"],
+            "end": row["anchor_end"],
+            "quote": row["anchor_quote"],
+        },
+        "dest": {
+            "chapter_id": row["dest_chapter_id"],
+            "start": row["dest_start"],
+            "end": row["dest_end"],
+            "quote": row["dest_quote"],
+        },
+        "author_name": row["author_name"],
+        "created_at": row["created_at"],
+        "can_edit": auth.can_modify(ident, row),
+    }
+
+
+@router.get("/texts/{slug}/annotations")
+async def list_annotations(slug: str, request: Request, conn=Depends(get_conn)):
+    """Everything for the whole text in one go; author tokens never leave the server."""
+    text = get_text(conn, slug)
+    ident = auth.identity(request, conn, text["id"])
+    replies: dict[int, list] = {}
+    for r in conn.execute(
+        """SELECT r.* FROM replies r JOIN annotations a ON a.id = r.annotation_id
+           WHERE a.text_id = ? ORDER BY r.id""",
+        (text["id"],),
+    ):
+        replies.setdefault(r["annotation_id"], []).append(r)
+    annotations = conn.execute(
+        "SELECT * FROM annotations WHERE text_id = ? ORDER BY id", (text["id"],)
+    ).fetchall()
+    links = conn.execute("SELECT * FROM links WHERE text_id = ? ORDER BY id", (text["id"],)).fetchall()
+    return {
+        "annotations": [annotation_json(a, replies.get(a["id"], []), ident) for a in annotations],
+        "links": [link_json(link, ident) for link in links],
+    }
+
+
+class NewAnnotation(Span):
+    layer: Literal["vocab", "commentary", "footnote"]
+    body: str = ""
+
+
+def check_body(layer: str, body: str) -> str:
+    body = body.strip()
+    # A bare vocab highlight is a question in itself ("what does this word mean?").
+    if not body and layer != "vocab":
+        raise HTTPException(422, "Add a comment")
+    return body
+
+
+@router.post("/texts/{slug}/annotations")
+async def create_annotation(slug: str, body: NewAnnotation, request: Request, conn=Depends(get_conn)):
+    text = get_text(conn, slug)
+    ident = auth.require_identity(request, conn, text["id"])
+    if body.layer == "footnote" and not ident["admin"]:
+        raise HTTPException(403, "Only the admin can add footnotes")
+    check_span(conn, text["id"], body)
+    comment = check_body(body.layer, body.body)
+    cur = conn.execute(
+        """INSERT INTO annotations (text_id, chapter_id, layer, start_offset, end_offset, quote,
+                                    body, author_name, author_token)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (text["id"], body.chapter_id, body.layer, body.start, body.end, body.quote, comment,
+         ident["name"], ident["token"]),
+    )
+    conn.commit()
+    return {"id": cur.lastrowid}
+
+
+def get_owned(conn, request, table: str, item_id: int, text_id_sql: str):
+    """Fetch a row and the requester's identity; 403 unless they may modify it."""
+    row = conn.execute(
+        f"SELECT x.*, {text_id_sql} AS owning_text_id FROM {table} x WHERE x.id = ?", (item_id,)
+    ).fetchone()
+    if row is None:
+        raise HTTPException(404, "Not found")
+    ident = auth.identity(request, conn, row["owning_text_id"])
+    if not auth.can_modify(ident, row):
+        raise HTTPException(403, "You can only change your own annotations")
+    return row
+
+
+ANNOTATION_TEXT = "x.text_id"
+REPLY_TEXT = "(SELECT a.text_id FROM annotations a WHERE a.id = x.annotation_id)"
+
+
+class Body(BaseModel):
+    body: str
+
+
+@router.patch("/annotations/{ann_id}")
+async def edit_annotation(ann_id: int, body: Body, request: Request, conn=Depends(get_conn)):
+    row = get_owned(conn, request, "annotations", ann_id, ANNOTATION_TEXT)
+    comment = check_body(row["layer"], body.body)
+    conn.execute(
+        "UPDATE annotations SET body = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (comment, ann_id),
+    )
+    conn.commit()
+    return {"ok": True}
+
+
+@router.delete("/annotations/{ann_id}")
+async def delete_annotation(ann_id: int, request: Request, conn=Depends(get_conn)):
+    get_owned(conn, request, "annotations", ann_id, ANNOTATION_TEXT)
+    conn.execute("DELETE FROM annotations WHERE id = ?", (ann_id,))
+    conn.commit()
+    return {"ok": True}
+
+
+# --- Replies ---------------------------------------------------------------------------
+
+
+@router.post("/annotations/{ann_id}/replies")
+async def create_reply(ann_id: int, body: Body, request: Request, conn=Depends(get_conn)):
+    ann = conn.execute("SELECT * FROM annotations WHERE id = ?", (ann_id,)).fetchone()
+    if ann is None:
+        raise HTTPException(404, "Not found")
+    ident = auth.require_identity(request, conn, ann["text_id"])
+    if ann["layer"] == "footnote":
+        raise HTTPException(400, "Footnotes don't have comment threads")
+    text = body.body.strip()
+    if not text:
+        raise HTTPException(422, "Reply is empty")
+    cur = conn.execute(
+        "INSERT INTO replies (annotation_id, body, author_name, author_token) VALUES (?, ?, ?, ?)",
+        (ann_id, text, ident["name"], ident["token"]),
+    )
+    conn.commit()
+    return {"id": cur.lastrowid}
+
+
+@router.patch("/replies/{reply_id}")
+async def edit_reply(reply_id: int, body: Body, request: Request, conn=Depends(get_conn)):
+    get_owned(conn, request, "replies", reply_id, REPLY_TEXT)
+    text = body.body.strip()
+    if not text:
+        raise HTTPException(422, "Reply is empty")
+    conn.execute(
+        "UPDATE replies SET body = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (text, reply_id)
+    )
+    conn.commit()
+    return {"ok": True}
+
+
+@router.delete("/replies/{reply_id}")
+async def delete_reply(reply_id: int, request: Request, conn=Depends(get_conn)):
+    get_owned(conn, request, "replies", reply_id, REPLY_TEXT)
+    conn.execute("DELETE FROM replies WHERE id = ?", (reply_id,))
+    conn.commit()
+    return {"ok": True}
+
+
+# --- Structural links ------------------------------------------------------------------
+
+
+class NewLink(BaseModel):
+    anchor: Span
+    dest: Span
+
+
+@router.post("/texts/{slug}/links")
+async def create_link(slug: str, body: NewLink, request: Request, conn=Depends(get_conn)):
+    text = get_text(conn, slug)
+    ident = auth.require_identity(request, conn, text["id"])
+    check_span(conn, text["id"], body.anchor)
+    check_span(conn, text["id"], body.dest)
+    a, d = body.anchor, body.dest
+    cur = conn.execute(
+        """INSERT INTO links (text_id, anchor_chapter_id, anchor_start, anchor_end, anchor_quote,
+                              dest_chapter_id, dest_start, dest_end, dest_quote,
+                              author_name, author_token)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (text["id"], a.chapter_id, a.start, a.end, a.quote, d.chapter_id, d.start, d.end, d.quote,
+         ident["name"], ident["token"]),
+    )
+    conn.commit()
+    return {"id": cur.lastrowid}
+
+
+@router.delete("/links/{link_id}")
+async def delete_link(link_id: int, request: Request, conn=Depends(get_conn)):
+    get_owned(conn, request, "links", link_id, "x.text_id")
+    conn.execute("DELETE FROM links WHERE id = ?", (link_id,))
+    conn.commit()
+    return {"ok": True}
 
 
 # --- Admin -----------------------------------------------------------------------------

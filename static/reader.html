@@ -39,5 +39,19 @@
 
   <aside class="panel" id="panel" aria-label="Comments"></aside>
   <div class="toolbar" id="toolbar" hidden></div>
+
+  <dialog id="join-dialog">
+    <form id="join-form">
+      <h2>Join to annotate</h2>
+      <p>Your name is shown on everything you add. Annotations you make can only be edited from this browser.</p>
+      <label>Your name <input name="name" required maxlength="60" autocomplete="name"></label>
+      <label>Class passcode <input name="passcode" required autocomplete="off"></label>
+      <p class="error" id="join-error"></p>
+      <div class="actions">
+        <button type="button" class="btn" id="join-cancel">Cancel</button>
+        <button class="btn primary">Join</button>
+      </div>
+    </form>
+  </dialog>
 </body>
 </html>
