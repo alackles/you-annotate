@@ -309,8 +309,8 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 .fn-mark-author { color: var(--ink-soft); font-family: var(--serif); font-style: italic; font-size: 0.7em; }
 
 /* Editors' notes: the glossed passage is always faintly shaded (student highlights win). */
-.ann.fn-editor:not(.hl-vocab):not(.hl-comm) { background: rgba(70, 60, 50, 0.07); }
-.ann.fn-editor.fn-active:not(.hl-vocab):not(.hl-comm) { background: rgba(70, 60, 50, 0.14); }
+.ann.fn-editor:not(.hl-vocab):not(.hl-comm) { background: rgba(70, 60, 50, 0.11); }
+.ann.fn-editor.fn-active:not(.hl-vocab):not(.hl-comm) { background: rgba(70, 60, 50, 0.18); }
 .ann.fn-author.fn-active:not(.hl-vocab):not(.hl-comm) { background: rgba(70, 60, 50, 0.07); }
 
 .fn-note {
