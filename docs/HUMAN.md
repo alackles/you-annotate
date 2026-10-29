@@ -9,7 +9,7 @@ Running to-do list and handoff notes for the human side of the project. Move ite
 ## To do
 
 - **Move the first export somewhere durable.** Claude deployed export/restore on 2026-10-29 and saved the first export to `texts/exports/equiano-2026-10-29.json`. It's only on your laptop: `texts/` is gitignored, and the file holds students' names, so it shouldn't go into the public repo either.
-- **Send each colleague their card.** Claude made the three copies on 2026-10-29 (see "Instructor copies" below). Print a card with `.venv/bin/python scripts/copies.py create <copy> --name … --passcode …`, which skips finished steps and only reprints, or read the codes from `copies/<copy>.env`. Their annotations show just their surname ("Krebsbach", "Rico", "Colon"), and every student passcode is `equiano`. To change a name before they start: `fly secrets set ADMIN_NAME="…" --app you-annotate-<copy>` (and edit the `.env` file). Is it Colón?
+- **Send each colleague their card**, if not done yet. Names and instructor codes are set (2026-10-29: Kurt Krebsbach, Monica Rico, Sigma Colón); every student passcode is `equiano`, which each instructor can change on their admin page. The codes are in `copies/<copy>.env`.
 
 ## Instructor copies
 
@@ -17,12 +17,12 @@ Each colleague gets their own app running this code, deployed from a release tag
 
 | Copy | URL | Instructor | Release |
 |---|---|---|---|
-| krebsbach | https://you-annotate-krebsbach.fly.dev/t/equiano | Krebsbach | release-2026-10-29 |
-| rico | https://you-annotate-rico.fly.dev/t/equiano | Rico | release-2026-10-29 |
-| colon | https://you-annotate-colon.fly.dev/t/equiano | Colon | release-2026-10-29 |
+| krebsbach | https://you-annotate-krebsbach.fly.dev/t/equiano | Kurt Krebsbach | release-2026-10-29 |
+| rico | https://you-annotate-rico.fly.dev/t/equiano | Monica Rico | release-2026-10-29 |
+| colon | https://you-annotate-colon.fly.dev/t/equiano | Sigma Colón | release-2026-10-29 |
 
 - **Make one:** `.venv/bin/python scripts/copies.py create smith --name "Dr. Smith" --passcode equiano`. It creates `you-annotate-smith`, uploads `texts/equiano.md`, copies the footnotes (and nothing else) from your live site, and prints a card to email them: URL, instructor code, student passcode. If it stops partway, run it again; finished steps are skipped.
-- **The codes** are in `copies/<name>.env` (gitignored). The instructor code is that app's admin password. If it leaks, set a new one with `fly secrets set ADMIN_PASSWORD=… --app you-annotate-smith` and update the file.
+- **Names and codes** are in `copies/<name>.env` (gitignored); the instructor code is that app's admin password. The file is only your record: what the app actually uses are Fly secrets, which `deploy` doesn't touch. To change a name or code, edit the file, then run `.venv/bin/python scripts/copies.py secrets smith`. It sends both to Fly, restarts that copy, and checks the new password logs in. Changing the password doesn't log out anyone already logged in; if a code leaks, also run `fly secrets set SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_hex(32))') --app you-annotate-smith`, which logs everyone out.
 - **Releases:** copies only ever get tagged code. Before making or updating copies, tag the current main: `git tag release-$(date +%F)`. Your own app keeps deploying from main with `fly deploy --ha=false`.
 - **Update one:** `.venv/bin/python scripts/copies.py deploy smith` (newest release) or `--tag release-…`. Update the table above.
 - **New footnotes to the copies:** after adding notes on your site, run `.venv/bin/python scripts/copies.py footnotes` (all copies, or name some). It only adds: a footnote you *edit* on your site would arrive as a second note next to the old one, and a deleted one stays in the copies. So fix wording before syncing, or tidy the copies by hand. A full sync (edits and deletions too) is possible; the open question is whether your site or a colleague's own edit wins.

@@ -3,6 +3,7 @@
     .venv/bin/python scripts/copies.py create smith --name "Dr. Smith" --passcode equiano
     .venv/bin/python scripts/copies.py deploy smith [--tag release-2026-11-05]
     .venv/bin/python scripts/copies.py footnotes [smith ...]     # default: every copy
+    .venv/bin/python scripts/copies.py secrets smith [...]       # after editing copies/smith.env
 
 `footnotes` adds footnotes that are new on the live site to the copies; ones a copy already
 has are skipped. It only adds: a footnote edited on the live site arrives as a second note
@@ -14,7 +15,9 @@ live site's export. Each step is skipped if already done, so a failed run can be
 It ends by printing a card to send the instructor.
 
 The instructor code is that app's ADMIN_PASSWORD. Codes live in copies/<copy>.env (gitignored)
-and are never regenerated, which would lock the instructor out.
+and are never regenerated, which would lock the instructor out. The live values are Fly
+secrets, which `deploy` doesn't touch: after editing ADMIN_NAME or ADMIN_PASSWORD in the
+file, run `copies.py secrets <copy>` to send them to Fly.
 
 Copies deploy from a release tag (`git tag release-YYYY-MM-DD`; the newest is the default) via
 a temporary git worktree, so uncommitted local changes never reach a colleague's copy.
@@ -238,6 +241,21 @@ def footnotes_cmd(args) -> None:
             c.post("/api/admin/logout")
 
 
+def secrets_cmd(args) -> None:
+    for name in args.copies:
+        env = read_env(name)
+        if not env:
+            sys.exit(f"No {env_path(name).relative_to(REPO)}")
+        stdin = f"ADMIN_NAME={env['ADMIN_NAME']}\nADMIN_PASSWORD={env['ADMIN_PASSWORD']}\n"
+        fly("secrets", "import", "--app", env["APP"], input=stdin)  # restarts the machine
+        with httpx.Client(base_url=env["URL"], timeout=60) as c:
+            wait_until_up(c)
+            if c.post("/api/admin/login", json={"password": env["ADMIN_PASSWORD"]}).status_code != 200:
+                sys.exit(f"{name}: secrets set, but the password from the file doesn't log in")
+            say(f"{name}: logs in with the file's password, shows as {c.get('/api/admin/me').json()['name']!r}")
+            c.post("/api/admin/logout")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(required=True)
@@ -263,6 +281,10 @@ def main():
     f.add_argument("--source", default=SOURCE)
     f.add_argument("--slug", default="equiano")
     f.set_defaults(func=footnotes_cmd)
+
+    s = sub.add_parser("secrets", help="send ADMIN_NAME and ADMIN_PASSWORD from copies/<copy>.env to Fly")
+    s.add_argument("copies", nargs="+", help="which copies (restarts each one)")
+    s.set_defaults(func=secrets_cmd)
 
     args = ap.parse_args()
     for name in args.copies if hasattr(args, "copies") else [args.copy]:
