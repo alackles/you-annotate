@@ -44,4 +44,6 @@ Anyone with the link can read the text and all its annotations without joining. 
 - **Change the passcode** on the admin page at any time. People who already joined stay joined.
 - **Export** a text from the admin page to save everything on it as one JSON file: the text itself, every highlight, comment, reply, footnote and link, with names and dates. The file explains its own format, so it stays readable without this app. **Restore…** loads such a file back onto an uploaded text. It first shows what will go where, and lists anything it can't place instead of guessing. Restored notes keep their authors' names, but only the admin can edit them.
 
+Instructors teaching the same course can get their own copy of the site: same text and footnotes, their own students and annotations, their own admin login. Ask Acacia.
+
 A text can't be edited after it's uploaded, because every annotation is pinned to the exact characters it marks.

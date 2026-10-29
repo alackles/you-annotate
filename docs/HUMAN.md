@@ -8,7 +8,23 @@ Running to-do list and handoff notes for the human side of the project. Move ite
 
 ## To do
 
-- **Deploy and take a first export** (`fly deploy --ha=false`, then Export on /admin). Keep the file somewhere durable. `texts/` is gitignored, so the export's copy of the text may be the only one off your laptop.
+- **Move the first export somewhere durable.** Claude deployed export/restore on 2026-10-29 and saved the first export to `texts/exports/equiano-2026-10-29.json`. It's only on your laptop: `texts/` is gitignored, and the file holds students' names, so it shouldn't go into the public repo either.
+- **Make the instructor copies** once you have the colleagues' names (see "Instructor copies" below).
+
+## Instructor copies
+
+Each colleague gets their own app running this code, deployed from a release tag. Their copy doesn't change when yours does; update one only when its instructor wants your newer version.
+
+| Copy | URL | Instructor | Release |
+|---|---|---|---|
+| *(none yet)* | | | |
+
+- **Make one:** `.venv/bin/python scripts/copies.py create smith --name "Dr. Smith" --passcode equiano`. It creates `you-annotate-smith`, uploads `texts/equiano.md`, copies the footnotes (and nothing else) from your live site, and prints a card to email them: URL, instructor code, student passcode. If it stops partway, run it again; finished steps are skipped.
+- **The codes** are in `copies/<name>.env` (gitignored). The instructor code is that app's admin password. If it leaks, set a new one with `fly secrets set ADMIN_PASSWORD=… --app you-annotate-smith` and update the file.
+- **Releases:** copies only ever get tagged code. Before making or updating copies, tag the current main: `git tag release-$(date +%F)`. Your own app keeps deploying from main with `fly deploy --ha=false`.
+- **Update one:** `.venv/bin/python scripts/copies.py deploy smith` (newest release) or `--tag release-…`. Update the table above.
+- **Remove one:** `fly apps destroy you-annotate-smith` deletes it and its data for good. Export its text from its admin page first.
+- **Names:** your app stays `you-annotate`, since Fly apps can't be renamed. A custom domain (see Next time) makes the names not matter.
 
 ## Next time
 
@@ -21,6 +37,7 @@ Planned for the next round of work. Context: the first class used it on 2026-10-
   - **C. Page images + invisible text layer.** The server emits positioned word spans over each page image, so `plain = textContent` still holds and text highlighting works on pages. The hard part is getting selection to line up with the glyphs.
   - *Open decisions:* (1) Is page mode a per-text setting, or always on for PDFs? Claude suggests per-text, with clean PDFs going through A. (2) Do boxes exist only in page mode, or also in text mode? Claude suggests page mode only, at first. (3) Build C at all? Claude suggests building B, trying it with a class, and seeing whether anyone misses text selection.
   - *Gotchas:* `paint()` resets `innerHTML` on every repaint, so page images must live in a layer it doesn't touch. Inline footnote `<sup>`s would push a positioned text layer out of alignment, so page mode needs overlay markers. Pages want a wider center column. PyMuPDF is AGPL; pypdfium2 (Apache/BSD) also rasterizes and gives character boxes.
+- **Custom domain, after the copies exist.** Buy one (e.g. `you-annotate.com`; availability not checked), then per copy: one CNAME (`smith` → `you-annotate-smith.fly.dev`) and `fly certs add smith.you-annotate.com --app you-annotate-smith`. Claude can do the Fly side and check DNS, and can enter the records too if the registrar has an API (e.g. Cloudflare with a token scoped to that one domain). **Cookie caveat:** a student's edit rights live in a cookie for one hostname, so moving a class to a new URL mid-term means they can't edit their earlier notes. Hand out the new URL at the start of a term.
 - *Known, not planned:* the app is single-machine by design (in-memory live-update hub, SQLite on one volume). That's fine for a class; going beyond one machine would need a shared message bus and database.
 
 ## Done
