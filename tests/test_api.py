@@ -209,6 +209,26 @@ def test_restore_refinds_drifted_quotes_and_reports_lost_ones(app, admin):
     assert placed["quote"] == "industrious" and placed["start"] == span("industrious")["start"]
 
 
+def test_instructor_copy_gets_only_the_footnotes(app, admin):
+    from scripts.copies import footnotes_only
+
+    alice = student(app, "Alice")
+    vocab_id = annotate(alice).json()["id"]
+    alice.post(f"/api/annotations/{vocab_id}/replies", json={"body": "diligent"}).raise_for_status()
+    annotate(alice, "strand", "commentary", "nice word")
+    alice.post("/api/texts/sample/links",
+               json={"anchor": span("The market and its customs"), "dest": span("The market was held")}).raise_for_status()
+    admin.post("/api/texts/sample/annotations",
+               json={**span("strand"), "layer": "footnote", "body": "A beach.", "voice": "author"}).raise_for_status()
+
+    second_copy(admin)
+    exported = admin.get("/api/texts/sample/export").json()
+    admin.post("/api/admin/texts/copy/restore?apply=true", json=footnotes_only(exported)).raise_for_status()
+    copied = admin.get("/api/texts/copy/annotations").json()
+    assert [(a["layer"], a["body"]) for a in copied["annotations"]] == [("footnote", "A beach.")]
+    assert copied["links"] == []
+
+
 def test_old_database_gains_voice_column(tmp_path, monkeypatch):
     import sqlite3
     from app import db
