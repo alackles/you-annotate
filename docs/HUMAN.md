@@ -31,7 +31,7 @@ Each colleague gets their own app running this code, deployed from a release tag
 
 ## Next time
 
-Planned for the next round of work. Context: the first class used it on 2026-10-28, about 100 minutes after the build started. Students used structural links as instructed, and (unprompted) took readily to answering each other's questions in threads.
+Planned for the next round of work.
 
 - **Let a text be revised after upload.** Right now texts can't be changed, because annotations anchor by UTF-16 offsets into each chapter's `plain` text. The groundwork for revision exists: every annotation and link end stores its `quote`, so a revised text can re-anchor each one by searching for that quote. Search near the old offset first, then anywhere in the chapter, normalizing dashes and whitespace the way `scripts/load_footnotes.py` does. Match chapters by title, falling back to the whole text. Make it preview-then-apply like the loader, and **report** anything that doesn't land uniquely rather than dropping it. Restore already does most of this (`_Placer` in `app/backup.py`: quote search with prefix/suffix tie-breaking, a placement report). Revision could be "export, upload the revised text, restore", with dash/whitespace normalization added to the placer.
 - **PDF texts (thinking it over, not decided).** These are for texts other than Equiano. There are three approaches, best built in this order:
