@@ -2,6 +2,11 @@
 
     .venv/bin/python scripts/copies.py create smith --name "Dr. Smith" --passcode equiano
     .venv/bin/python scripts/copies.py deploy smith [--tag release-2026-11-05]
+    .venv/bin/python scripts/copies.py footnotes [smith ...]     # default: every copy
+
+`footnotes` adds footnotes that are new on the live site to the copies; ones a copy already
+has are skipped. It only adds: a footnote edited on the live site arrives as a second note
+beside the old one, and one deleted there stays in the copies.
 
 `create` makes the app you-annotate-<copy> with its own volume and secrets, deploys a release
 tag to it, uploads texts/equiano.md, and copies the footnotes (only the footnotes) from the
@@ -215,6 +220,24 @@ def deploy_cmd(args) -> None:
     deploy(args.copy, env["APP"], args.tag or newest_release())
 
 
+def footnotes_cmd(args) -> None:
+    names = args.copies or sorted(p.stem for p in COPIES.glob("*.env"))
+    if not names:
+        sys.exit("No copies yet.")
+    with httpx.Client(base_url=args.source, timeout=60) as src:
+        export = src.get(f"/api/texts/{args.slug}/export").raise_for_status().json()
+    for name in names:
+        env = read_env(name)
+        if not env:
+            sys.exit(f"No {env_path(name).relative_to(REPO)}")
+        print(f"{name}:")
+        with httpx.Client(base_url=env["URL"], timeout=60) as c:
+            wait_until_up(c)
+            c.post("/api/admin/login", json={"password": env["ADMIN_PASSWORD"]}).raise_for_status()
+            copy_footnotes(c, args.slug, export)
+            c.post("/api/admin/logout")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(required=True)
@@ -235,9 +258,16 @@ def main():
     d.add_argument("--tag", help="release tag to deploy (default: newest release-*)")
     d.set_defaults(func=deploy_cmd)
 
+    f = sub.add_parser("footnotes", help="add footnotes that are new on the live site to copies")
+    f.add_argument("copies", nargs="*", help="which copies (default: all in copies/)")
+    f.add_argument("--source", default=SOURCE)
+    f.add_argument("--slug", default="equiano")
+    f.set_defaults(func=footnotes_cmd)
+
     args = ap.parse_args()
-    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,30}", args.copy):
-        sys.exit("Copy name: lowercase letters, digits and dashes")
+    for name in args.copies if hasattr(args, "copies") else [args.copy]:
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,30}", name):
+            sys.exit("Copy name: lowercase letters, digits and dashes")
     args.func(args)
 
 

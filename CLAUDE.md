@@ -36,6 +36,7 @@ fly deploy --ha=false                                # deploy (see docs/HUMAN.md
 curl -o backup.json https://you-annotate.fly.dev/api/texts/equiano/export   # JSON backup; restore via /admin
 .venv/bin/python scripts/copies.py create <copy> --name "…" --passcode …   # instructor copy: new Fly app you-annotate-<copy>; idempotent
 .venv/bin/python scripts/copies.py deploy <copy> [--tag release-…]          # copies run release tags, never main
+.venv/bin/python scripts/copies.py footnotes [<copy> ...]                    # add live site's new footnotes to copies (add-only)
 ```
 
 **Instructor copies** are separate Fly apps running this code, one per instructor, made by `scripts/copies.py`; there is no multi-tenancy in the app. Their secrets live in gitignored `copies/<copy>.env`. See docs/HUMAN.md "Instructor copies".
