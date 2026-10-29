@@ -42,5 +42,6 @@ Anyone with the link can read the text and all its annotations without joining. 
 - **Add footnotes** while logged in: select text in the reader and choose **Footnote**. Students can't add footnotes.
 - **Moderate**: as admin you can edit or delete anyone's annotation, reply or link. Your own highlights and comments look just like the students', with your name on them.
 - **Change the passcode** on the admin page at any time. People who already joined stay joined.
+- **Export** a text from the admin page to save everything on it as one JSON file: the text itself, every highlight, comment, reply, footnote and link, with names and dates. The file explains its own format, so it stays readable without this app. **Restore…** loads such a file back onto an uploaded text. It first shows what will go where, and lists anything it can't place instead of guessing. Restored notes keep their authors' names, but only the admin can edit them.
 
 A text can't be edited after it's uploaded, because every annotation is pinned to the exact characters it marks.

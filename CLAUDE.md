@@ -33,6 +33,7 @@ node --test tests/                                   # JS pure-function tests (N
 fly deploy --ha=false                                # deploy (see docs/HUMAN.md for first-time setup)
 .venv/bin/python scripts/gutenberg_to_md.py texts/equiano.html --out texts/equiano.md --footnotes texts/equiano-footnotes.json
 .venv/bin/python scripts/load_footnotes.py [--base URL] [--apply]   # footnotes onto a live text; dry run unless --apply; idempotent
+curl -o backup.json https://you-annotate.fly.dev/api/texts/equiano/export   # JSON backup; restore via /admin
 ```
 
 ## Architecture
@@ -49,6 +50,8 @@ FastAPI + stdlib `sqlite3` (no ORM) serving a JSON API and static files; the fro
 **Live updates** carry no data: every write calls `events.publish(text_id)`, SSE clients get a `changed` ping and refetch `GET /api/texts/{slug}/annotations` (everything for the text). The comment panel (`panel.js`) preserves half-typed drafts across these refreshes.
 
 **Identity:** admin is a signed session cookie (password from `ADMIN_PASSWORD`). Students join with name + passcode, which sets a random httpOnly `ya_token` cookie; rows store `author_token`, and edit/delete requires a matching token or admin (`auth.can_modify`). Tokens must never appear in API output.
+
+**Export/restore** (`app/backup.py`) is the portable form of a text's data: chapter text plus every span as offsets + quote + prefix/suffix, keyed by chapter position, no tokens or ids. Restore re-finds each span and reports what it can't place. Restored rows get author token `""`, and admin rows get `"admin"`; `auth.is_issued_token` stops a browser from joining under either.
 
 Layers: `vocab`/`commentary` (highlights + threads) and `footnote` (admin-only, no thread) share the `annotations` table; structural links are the separate `links` table (two spans, no thread). Link numerals are computed client-side (`numberLinks`), not stored.
 

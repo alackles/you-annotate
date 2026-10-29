@@ -137,6 +137,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .btn:disabled { opacity: 0.5; cursor: default; }
+a.btn { display: inline-block; color: inherit; text-decoration: none; }
 
 /* --- Narrow screens ----------------------------------------------------------------- */
 

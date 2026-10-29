@@ -2,13 +2,15 @@
 
 import re
 import sqlite3
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import Body as FBody
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from . import auth, db, events
+from . import auth, backup, db, events
 from .db import get_conn
 from .importer import build_chapters, utf16_len, utf16_slice
 
@@ -195,6 +197,15 @@ async def list_annotations(slug: str, request: Request, conn=Depends(get_conn)):
         "annotations": [annotation_json(a, replies.get(a["id"], []), ident) for a in annotations],
         "links": [link_json(link, ident) for link in links],
     }
+
+
+@router.get("/texts/{slug}/export")
+async def export_text(slug: str, conn=Depends(get_conn)):
+    """Open to visitors like the listing above: it holds nothing they can't already read."""
+    text = get_text(conn, slug)
+    filename = f"{slug}-{date.today().isoformat()}.json"
+    return JSONResponse(backup.export_text(conn, text),
+                        headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
 @router.get("/texts/{slug}/events")
@@ -455,6 +466,23 @@ async def upload_text(
     )
     conn.commit()
     return {"slug": slug, "chapters": len(chapters)}
+
+
+@router.post("/admin/texts/{slug}/restore")
+async def restore_text(slug: str, request: Request, data: dict = FBody(...), apply: bool = False,
+                       conn=Depends(get_conn)):
+    """Restore an export onto this text. A preview unless ?apply=true; either way returns
+    the report of what lands where."""
+    auth.require_admin(request)
+    text = get_text(conn, slug)
+    try:
+        plan = backup.plan_restore(conn, text, data)
+    except (KeyError, TypeError, ValueError, AttributeError):
+        raise HTTPException(400, "That file isn't a you-annotate export")
+    if apply:
+        backup.apply_restore(conn, text["id"], plan)
+        events.publish(text["id"])
+    return {**plan["report"], "applied": apply}
 
 
 class TextUpdate(BaseModel):

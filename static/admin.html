@@ -68,6 +68,8 @@
           try { await api('PATCH', `/api/admin/texts/${t.slug}`, { passcode: passcode.value }); save.textContent = 'Saved'; }
           catch (err) { alert(err.message); }
         } });
+        const exp = el('a', { className: 'btn', href: `/api/texts/${t.slug}/export`, textContent: 'Export' });
+        const restore = el('button', { className: 'btn', textContent: 'Restore…', onclick: () => restoreInto(t) });
         const del = el('button', { className: 'btn', textContent: 'Delete', onclick: async () => {
           if (!confirm(`Delete "${t.title}" and all ${t.annotations} annotations? This can't be undone.`)) return;
           await api('DELETE', `/api/admin/texts/${t.slug}`);
@@ -78,9 +80,32 @@
           el('td', { textContent: t.chapters }),
           el('td', { textContent: t.annotations }),
           el('td', {}, passcode, ' ', save),
-          el('td', {}, del),
+          el('td', {}, exp, ' ', restore, ' ', del),
         ));
       }
+    }
+
+    // Pick an export file, preview where everything lands, then apply on confirm.
+    function restoreInto(t) {
+      const input = el('input', { type: 'file', accept: '.json,application/json' });
+      input.onchange = async () => {
+        try {
+          const data = JSON.parse(await input.files[0].text());
+          const url = `/api/admin/texts/${t.slug}/restore`;
+          const r = await api('POST', url, data);
+          const line = (name, c) => `${name}: ${c.exact} in place, ${c.moved} re-found nearby, `
+            + `${c.duplicate} already here, ${c.unplaced} can't be placed`;
+          const problems = r.problems.length ? `\n\nCan't be placed:\n${r.problems.join('\n')}` : '';
+          const adding = r.annotations.exact + r.annotations.moved + r.links.exact + r.links.moved;
+          const summary = `${line('Annotations', r.annotations)}\n${line('Links', r.links)}\n`
+            + `Replies to add: ${r.replies}${problems}`;
+          if (!adding) { alert(`Nothing to add to "${t.title}".\n\n${summary}`); return; }
+          if (!confirm(`Restore into "${t.title}"?\n\n${summary}`)) return;
+          await api('POST', `${url}?apply=true`, data);
+          refresh();
+        } catch (err) { alert(err instanceof SyntaxError ? "That file isn't JSON." : err.message); }
+      };
+      input.click();
     }
 
     $('login-form').addEventListener('submit', async (e) => {
