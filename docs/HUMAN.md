@@ -6,6 +6,8 @@ Running to-do list and handoff notes for the human side of the project. Move ite
 
 **Live at https://you-annotate.fly.dev/**, with the whole Equiano text uploaded at https://you-annotate.fly.dev/t/equiano. Admin login uses the password from your local `.env`; your annotations show as "Acacia Ackles". The text has 115 footnotes: Equiano's 26 plus 89 from your notes index.
 
+**Sandbox at https://you-annotate-dev.fly.dev/** (made 2026-10-29), for trying features and new text formats. It started empty; log in at /admin with the same password as your live site. No students use it, so anything goes.
+
 ## To do
 
 - **Move the first export somewhere durable.** Claude deployed export/restore on 2026-10-29 and saved the first export to `texts/exports/equiano-2026-10-29.json`. It's only on your laptop: `texts/` is gitignored, and the file holds students' names, so it shouldn't go into the public repo either.
@@ -23,7 +25,7 @@ Each colleague gets their own app running this code, deployed from a release tag
 
 - **Make one:** `.venv/bin/python scripts/copies.py create smith --name "Dr. Smith" --passcode equiano`. It creates `you-annotate-smith`, uploads `texts/equiano.md`, copies the footnotes (and nothing else) from your live site, and prints a card to email them: URL, instructor code, student passcode. If it stops partway, run it again; finished steps are skipped.
 - **Names and codes** are in `copies/<name>.env` (gitignored); the instructor code is that app's admin password. The file is only your record: what the app actually uses are Fly secrets, which `deploy` doesn't touch. To change a name or code, edit the file, then run `.venv/bin/python scripts/copies.py secrets smith`. It sends both to Fly, restarts that copy, and checks the new password logs in. Changing the password doesn't log out anyone already logged in; if a code leaks, also run `fly secrets set SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_hex(32))') --app you-annotate-smith`, which logs everyone out.
-- **Releases:** copies only ever get tagged code. Before making or updating copies, tag the current main: `git tag release-$(date +%F)`. Your own app keeps deploying from main with `fly deploy --ha=false`.
+- **Releases:** copies only ever get tagged code. Before making or updating copies, tag the current main: `git tag release-$(date +%F)`. Your own site gets tagged code too (see Deploying updates).
 - **Update one:** `.venv/bin/python scripts/copies.py deploy smith` (newest release) or `--tag release-…`. Update the table above.
 - **New footnotes to the copies:** after adding notes on your site, run `.venv/bin/python scripts/copies.py footnotes` (all copies, or name some). It only adds: a footnote you *edit* on your site would arrive as a second note next to the old one, and a deleted one stays in the copies. So fix wording before syncing, or tidy the copies by hand. A full sync (edits and deletions too) is possible; the open question is whether your site or a colleague's own edit wins.
 - **Remove one:** `fly apps destroy you-annotate-smith` deletes it and its data for good. Export its text from its admin page first.
@@ -53,7 +55,19 @@ Planned for the next round of work.
 
 ## Deploying updates
 
-`fly deploy --ha=false` from the repo root. `--ha=false` matters: the app must run on exactly one machine (in-memory live updates, SQLite on one volume). The app is `you-annotate` (org: personal); its volume `data` (1 GB, ord) is mounted at `/data`. Secrets: `ADMIN_PASSWORD`, `ADMIN_NAME`, `SECRET_KEY` (`fly secrets list --app you-annotate`).
+Three kinds of site, three ways to deploy:
+
+| Site | App | Gets | How |
+|---|---|---|---|
+| Sandbox | `you-annotate-dev` | whatever is checked out: any branch, uncommitted edits too | `fly deploy --ha=false` |
+| Your live site | `you-annotate` | release tags only | `.venv/bin/python scripts/copies.py live` |
+| Instructor copies | `you-annotate-<copy>` | release tags only | `.venv/bin/python scripts/copies.py deploy <copy>` |
+
+A plain `fly deploy` can only reach the sandbox, because `fly.toml` names it. `copies.py live` deploys the newest release tag (or `--tag release-…`). It asks you to confirm and saves an export of every text to `texts/exports/` first. Your live site is on `release-2026-10-29`'s code (as of 2026-10-29; nothing in the app has changed since that tag).
+
+The usual path: work on a branch, try it on the sandbox, merge to main, and Claude checks the release gate (all tests pass). Then tag `git tag release-$(date +%F)` and run `copies.py live` outside class time.
+
+`--ha=false` matters for every site: each app must run on exactly one machine (in-memory live updates, SQLite on one volume). Each app has its own volume `data` (1 GB, ord) mounted at `/data`, and secrets `ADMIN_PASSWORD`, `ADMIN_NAME`, `SECRET_KEY` (`fly secrets list --app <app>`). The sandbox uses the same admin password and name as your live site, but its own `SECRET_KEY`.
 
 ### Before any deploy to a site students use
 

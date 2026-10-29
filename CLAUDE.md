@@ -30,7 +30,8 @@ cp .env.example .env                                 # set ADMIN_PASSWORD etc.
 node --test tests/                                   # JS pure-function tests (Node 18+, no deps)
 .venv/bin/python scripts/e2e.py [shots-dir]          # browser end-to-end; needs `uv pip install playwright` + Google Chrome
 
-fly deploy --ha=false                                # deploy (see docs/HUMAN.md for first-time setup)
+fly deploy --ha=false                                # deploy the checkout to the sandbox you-annotate-dev (fly.toml), never a student site
+.venv/bin/python scripts/copies.py live [--tag release-…]                   # Acacia's live site: release tags only; exports first, asks first
 .venv/bin/python scripts/gutenberg_to_md.py texts/equiano.html --out texts/equiano.md --footnotes texts/equiano-footnotes.json
 .venv/bin/python scripts/load_footnotes.py [--base URL] [--apply]   # footnotes onto a live text; dry run unless --apply; idempotent
 curl -o backup.json https://you-annotate.fly.dev/api/texts/equiano/export   # JSON backup; restore via /admin

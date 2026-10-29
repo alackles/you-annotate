@@ -1,4 +1,7 @@
-app = "you-annotate"
+# The sandbox. A bare `fly deploy` sends whatever is checked out here, never to a site students
+# use: those get release tags via scripts/copies.py (`live` for you-annotate, `deploy` for copies),
+# which pass --app.
+app = "you-annotate-dev"
 primary_region = "ord"
 
 [build]

@@ -4,6 +4,11 @@
     .venv/bin/python scripts/copies.py deploy smith [--tag release-2026-11-05]
     .venv/bin/python scripts/copies.py footnotes [smith ...]     # default: every copy
     .venv/bin/python scripts/copies.py secrets smith [...]       # after editing copies/smith.env
+    .venv/bin/python scripts/copies.py live [--tag release-2026-11-05]   # Acacia's own site
+
+`live` deploys a release tag to the live site (you-annotate) the same way, after saving an
+export of each of its texts to texts/exports/. A bare `fly deploy` goes to the sandbox app
+named in fly.toml (you-annotate-dev), never to a site students use.
 
 `footnotes` adds footnotes that are new on the live site to the copies; ones a copy already
 has are skipped. It only adds: a footnote edited on the live site arrives as a second note
@@ -40,7 +45,8 @@ from dotenv import dotenv_values
 REPO = Path(__file__).resolve().parent.parent
 COPIES = REPO / "copies"
 ORG, REGION = "personal", "ord"
-SOURCE = "https://you-annotate.fly.dev"
+LIVE_APP = "you-annotate"
+SOURCE = f"https://{LIVE_APP}.fly.dev"
 CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"  # no i, l, o, 0, 1
 
 
@@ -127,6 +133,11 @@ def ensure_secrets(copy: str, app: str, name: str, passcode: str) -> dict:
 
 
 def deploy(copy: str, app: str, tag: str) -> None:
+    deploy_tag(app, tag)
+    write_env(copy, {**read_env(copy), "TAG": tag})
+
+
+def deploy_tag(app: str, tag: str) -> None:
     say(f"deploying {tag} to {app} (a few minutes)")
     tree = Path(tempfile.mkdtemp(prefix="you-annotate-deploy-")) / "tree"
     sh("git", "worktree", "add", "--detach", str(tree), tag)
@@ -137,7 +148,6 @@ def deploy(copy: str, app: str, tag: str) -> None:
     finally:
         sh("git", "worktree", "remove", "--force", str(tree))
         shutil.rmtree(tree.parent, ignore_errors=True)
-    write_env(copy, {**read_env(copy), "TAG": tag})
 
 
 def wait_until_up(c: httpx.Client) -> None:
@@ -256,6 +266,27 @@ def secrets_cmd(args) -> None:
             c.post("/api/admin/logout")
 
 
+def live_cmd(args) -> None:
+    tag = args.tag or newest_release()
+    if not args.yes:
+        print(f"Deploy {tag} to {SOURCE}, the site your students use? The app restarts, so not "
+              "during class. If this release changes the database layout, test it on a copy of "
+              "the live database first (docs/HUMAN.md).")
+        if input("Type 'yes' to deploy: ").strip() != "yes":
+            sys.exit("Not deployed.")
+    exports = REPO / "texts" / "exports"
+    exports.mkdir(parents=True, exist_ok=True)
+    with httpx.Client(base_url=SOURCE, timeout=60) as c:
+        for t in c.get("/api/texts").raise_for_status().json():
+            path = exports / f"{t['slug']}-{time.strftime('%Y-%m-%d-%H%M')}-before-{tag}.json"
+            path.write_bytes(c.get(f"/api/texts/{t['slug']}/export").raise_for_status().content)
+            say(f"saved {path.relative_to(REPO)}")
+    deploy_tag(LIVE_APP, tag)
+    with httpx.Client(base_url=SOURCE, timeout=60) as c:
+        wait_until_up(c)
+    say(f"{SOURCE} is up on {tag}; update the Release column in docs/HUMAN.md")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(required=True)
@@ -286,8 +317,13 @@ def main():
     s.add_argument("copies", nargs="+", help="which copies (restarts each one)")
     s.set_defaults(func=secrets_cmd)
 
+    v = sub.add_parser("live", help=f"deploy a release tag to your own site ({LIVE_APP})")
+    v.add_argument("--tag", help="release tag to deploy (default: newest release-*)")
+    v.add_argument("--yes", action="store_true", help="skip the confirmation question")
+    v.set_defaults(func=live_cmd)
+
     args = ap.parse_args()
-    for name in args.copies if hasattr(args, "copies") else [args.copy]:
+    for name in getattr(args, "copies", None) or ([args.copy] if hasattr(args, "copy") else []):
         if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,30}", name):
             sys.exit("Copy name: lowercase letters, digits and dashes")
     args.func(args)
