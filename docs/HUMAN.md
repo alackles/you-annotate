@@ -55,6 +55,12 @@ Planned for the next round of work.
 
 `fly deploy --ha=false` from the repo root. `--ha=false` matters: the app must run on exactly one machine (in-memory live updates, SQLite on one volume). The app is `you-annotate` (org: personal); its volume `data` (1 GB, ord) is mounted at `/data`. Secrets: `ADMIN_PASSWORD`, `ADMIN_NAME`, `SECRET_KEY` (`fly secrets list --app you-annotate`).
 
+### Before any deploy to a site students use
+
+- **Not during class**, and not the night before annotations are due. A deploy restarts the app's only machine; open pages reconnect, but a half-typed comment may not survive.
+- **Take an export first:** `curl -o texts/exports/equiano-$(date +%F).json https://you-annotate.fly.dev/api/texts/equiano/export`.
+- **If the change touches the database layout** (Claude will say so; it means `migrate()` in `app/db.py` changed): the live database is rewritten when the new code starts, and rolling back the code does *not* undo that. So before deploying, Claude pulls a copy of the real database, runs the new code against it locally, and you both check the text and annotations still look right. Fly's daily snapshots are a last resort, not the plan.
+
 ## Good to know
 
 - **Adding more notes:** add entries to `texts/equiano_files/equiano_explanatory_notes_index.md` (Chapter VII onward), then run `.venv/bin/python scripts/load_footnotes.py` to preview and the same with `--apply` to add them. Notes already on the site are skipped. Changing an existing entry's text adds a new note rather than replacing the old one, so delete the old one in the reader (as admin, open the note and click "edit"). Your draft's Chapter IV/V headings look shifted (pp. 53–57 are in Chapter III, pp. 59–72 in Chapter IV); the loader doesn't depend on them. Then run `scripts/copies.py footnotes` to send the new notes to the instructor copies.

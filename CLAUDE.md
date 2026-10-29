@@ -40,6 +40,8 @@ curl -o backup.json https://you-annotate.fly.dev/api/texts/equiano/export   # JS
 .venv/bin/python scripts/copies.py secrets <copy> ...                        # push ADMIN_NAME/ADMIN_PASSWORD from copies/<copy>.env to Fly
 ```
 
+**Release gate.** Before cutting a `release-*` tag or deploying to any site students use, all three suites must pass: `pytest`, `node --test tests/`, `scripts/e2e.py`. Anchoring breaks silently (one injected element without class `ui` shifts every offset after it), and only the tests notice. If `migrate()` in `app/db.py` changed, also run the new code against a copy of the live database first. The DB is in WAL mode, so don't copy the bare file: snapshot it on the machine with Python's `sqlite3` `.backup()`, then `fly ssh sftp get` it into `texts/` (gitignored, since it holds student names). See docs/HUMAN.md "Before any deploy".
+
 **Instructor copies** are separate Fly apps running this code, one per instructor, made by `scripts/copies.py`; there is no multi-tenancy in the app. Their secrets live in gitignored `copies/<copy>.env`. See docs/HUMAN.md "Instructor copies".
 
 ## Architecture
