@@ -6,6 +6,7 @@ session cookie. Students: see "Participants" below. Visitors: neither; read-only
 
 import hmac
 import os
+import re
 import secrets
 import sqlite3
 
@@ -37,6 +38,9 @@ def admin_name() -> str:
 
 TOKEN_COOKIE = "ya_token"
 TOKEN_MAX_AGE = 60 * 60 * 24 * 365
+# What new_token() makes. Rows also hold sentinel tokens ("admin", "" for restored items);
+# a browser must never be able to join under one of those by setting its own cookie.
+ISSUED_TOKEN = re.compile(r"[A-Za-z0-9_-]{32}")
 
 
 def identity(request: Request, conn: sqlite3.Connection, text_id: int) -> dict | None:
@@ -69,3 +73,7 @@ def passcode_matches(given: str, expected: str) -> bool:
 
 def new_token() -> str:
     return secrets.token_urlsafe(24)
+
+
+def is_issued_token(token: str | None) -> bool:
+    return bool(token) and ISSUED_TOKEN.fullmatch(token) is not None

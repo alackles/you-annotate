@@ -84,6 +84,14 @@ def test_same_name_in_another_browser_is_not_the_same_author(app):
     assert impostor.delete(f"/api/annotations/{ann_id}").status_code == 403
 
 
+def test_forged_admin_token_cookie_is_replaced_on_join(app, admin):
+    fn_id = annotate(admin, "strand", "footnote", "A beach.").json()["id"]
+    forger = TestClient(app)
+    forger.cookies.set("ya_token", "admin")
+    forger.post("/api/texts/sample/join", json={"name": "Mallory", "passcode": "fish"}).raise_for_status()
+    assert forger.delete(f"/api/annotations/{fn_id}").status_code == 403
+
+
 def test_admin_can_edit_and_delete_anything(app, admin):
     alice = student(app, "Alice")
     ann_id = annotate(alice, layer="commentary", body="nice").json()["id"]

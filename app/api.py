@@ -81,7 +81,9 @@ async def join(slug: str, body: Join, request: Request, response: Response, conn
         raise HTTPException(400, "Enter your name")
     if not auth.passcode_matches(body.passcode, text["passcode"]):
         raise HTTPException(403, "Wrong passcode")
-    token = request.cookies.get(auth.TOKEN_COOKIE) or auth.new_token()
+    token = request.cookies.get(auth.TOKEN_COOKIE)
+    if not auth.is_issued_token(token):
+        token = auth.new_token()
     conn.execute(
         """INSERT INTO participants (token, text_id, name) VALUES (?, ?, ?)
            ON CONFLICT (token, text_id) DO UPDATE SET name = excluded.name""",
