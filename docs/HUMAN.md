@@ -9,7 +9,7 @@ Running to-do list and handoff notes for the human side of the project. Move ite
 ## To do
 
 - **Move the first export somewhere durable.** Claude deployed export/restore on 2026-10-29 and saved the first export to `texts/exports/equiano-2026-10-29.json`. It's only on your laptop: `texts/` is gitignored, and the file holds students' names, so it shouldn't go into the public repo either.
-- **Make the instructor copies** once you have the colleagues' names (see "Instructor copies" below).
+- **Send each colleague their card.** Claude made the three copies on 2026-10-29 (see "Instructor copies" below). Print a card with `.venv/bin/python scripts/copies.py create <copy> --name … --passcode …`, which skips finished steps and only reprints, or read the codes from `copies/<copy>.env`. Their annotations show just their surname ("Krebsbach", "Rico", "Colon"), and every student passcode is `equiano`. To change a name before they start: `fly secrets set ADMIN_NAME="…" --app you-annotate-<copy>` (and edit the `.env` file). Is it Colón?
 
 ## Instructor copies
 
@@ -17,7 +17,9 @@ Each colleague gets their own app running this code, deployed from a release tag
 
 | Copy | URL | Instructor | Release |
 |---|---|---|---|
-| *(none yet)* | | | |
+| krebsbach | https://you-annotate-krebsbach.fly.dev/t/equiano | Krebsbach | release-2026-10-29 |
+| rico | https://you-annotate-rico.fly.dev/t/equiano | Rico | release-2026-10-29 |
+| colon | https://you-annotate-colon.fly.dev/t/equiano | Colon | release-2026-10-29 |
 
 - **Make one:** `.venv/bin/python scripts/copies.py create smith --name "Dr. Smith" --passcode equiano`. It creates `you-annotate-smith`, uploads `texts/equiano.md`, copies the footnotes (and nothing else) from your live site, and prints a card to email them: URL, instructor code, student passcode. If it stops partway, run it again; finished steps are skipped.
 - **The codes** are in `copies/<name>.env` (gitignored). The instructor code is that app's admin password. If it leaks, set a new one with `fly secrets set ADMIN_PASSWORD=… --app you-annotate-smith` and update the file.
